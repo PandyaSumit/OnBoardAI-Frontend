@@ -14,15 +14,12 @@ const RoleSelection = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
-            {/* Header */}
             <div className="text-center mb-12">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">Select Your Role</h1>
                 <p className="text-gray-600">Choose how you want to get started</p>
             </div>
 
-            {/* Role Selection Cards */}
             <div className="flex flex-col md:flex-row gap-6 w-full max-w-4xl">
-                {/* Organization Card */}
                 <div
                     onClick={() => setSelectedRole("organization")}
                     className={`flex-1 p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 bg-white hover:shadow-lg ${selectedRole === "organization"
@@ -51,7 +48,6 @@ const RoleSelection = () => {
                     <p className="text-gray-600">Manage employees and onboarding workflows</p>
                 </div>
 
-                {/* Employee Card */}
                 <div
                     onClick={() => setSelectedRole("employee")}
                     className={`flex-1 p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 bg-white hover:shadow-lg ${selectedRole === "employee"
@@ -81,7 +77,6 @@ const RoleSelection = () => {
                 </div>
             </div>
 
-            {/* Continue Button */}
             <button
                 onClick={handleContinue}
                 disabled={!selectedRole}

@@ -1,9 +1,171 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+
+// Custom validation rules
+const validationRules = {
+    email: {
+        required: true,
+        pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        message: 'Invalid email address'
+    },
+    password: {
+        required: true,
+        minLength: 6,
+        message: 'Password must be at least 6 characters'
+    },
+    signupPassword: {
+        required: true,
+        minLength: 8,
+        pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    },
+    firstName: {
+        required: true,
+        minLength: 2,
+        message: 'First name must be at least 2 characters'
+    },
+    lastName: {
+        required: true,
+        minLength: 2,
+        message: 'Last name must be at least 2 characters'
+    },
+    phone: {
+        required: true,
+        pattern: /^[0-9+\-\s()]+$/,
+        minLength: 10,
+        message: 'Invalid phone number format'
+    },
+    employeeId: {
+        required: true,
+        pattern: /^[A-Z0-9]+$/,
+        minLength: 3,
+        message: 'Employee ID must contain only uppercase letters and numbers'
+    },
+    department: {
+        required: true,
+        message: 'Please select a department'
+    }
+};
+
+// Custom form validation hook
+const useFormValidation = (initialValues, isLogin) => {
+    const [values, setValues] = useState(initialValues);
+    const [errors, setErrors] = useState({});
+    const [touched, setTouched] = useState({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const validateField = useCallback((name, value) => {
+        const rule = validationRules[name];
+        if (!rule) return '';
+
+        if (rule.required && (!value || value.trim() === '')) {
+            return rule.message || `${name} is required`;
+        }
+
+        if (name === 'password' && !isLogin) {
+            const signupRule = validationRules.signupPassword;
+            if (value.length < signupRule.minLength) {
+                return `Password must be at least ${signupRule.minLength} characters`;
+            }
+            if (signupRule.pattern && !signupRule.pattern.test(value)) {
+                return signupRule.message;
+            }
+        } else if (name === 'password' && isLogin) {
+            if (value.length < rule.minLength) {
+                return `Password must be at least ${rule.minLength} characters`;
+            }
+        }
+
+        if (name === 'confirmPassword') {
+            if (value !== values.password) {
+                return 'Passwords must match';
+            }
+        }
+
+        if (rule.pattern && !rule.pattern.test(value)) {
+            return rule.message;
+        }
+
+        if (rule.minLength && value.length < rule.minLength) {
+            return `${name} must be at least ${rule.minLength} characters`;
+        }
+
+        return '';
+    }, [values.password, isLogin]);
+
+    const handleChange = useCallback((e) => {
+        const { name, value } = e.target;
+        setValues(prev => ({ ...prev, [name]: value }));
+
+        // Clear error when user starts typing
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    }, [errors]);
+
+    const handleBlur = useCallback((e) => {
+        const { name, value } = e.target;
+        setTouched(prev => ({ ...prev, [name]: true }));
+
+        const error = validateField(name, value);
+        setErrors(prev => ({ ...prev, [name]: error }));
+    }, [validateField]);
+
+    const validateForm = useCallback(() => {
+        const newErrors = {};
+        const fieldsToValidate = isLogin
+            ? ['email', 'password']
+            : ['firstName', 'lastName', 'email', 'password', 'confirmPassword', 'phone', 'employeeId', 'department'];
+
+        fieldsToValidate.forEach(field => {
+            const error = validateField(field, values[field]);
+            if (error) {
+                newErrors[field] = error;
+            }
+        });
+
+        setErrors(newErrors);
+        setTouched(fieldsToValidate.reduce((acc, field) => ({ ...acc, [field]: true }), {}));
+
+        return Object.keys(newErrors).length === 0;
+    }, [values, validateField, isLogin]);
+
+    const resetForm = useCallback(() => {
+        setValues(initialValues);
+        setErrors({});
+        setTouched({});
+        setIsSubmitting(false);
+    }, [initialValues]);
+
+    const handleSubmit = useCallback((onSubmit) => {
+        return (e) => {
+            if (e) e.preventDefault();
+
+            if (validateForm()) {
+                setIsSubmitting(true);
+                onSubmit(values);
+                setIsSubmitting(false);
+            }
+        };
+    }, [values, validateForm]);
+
+    return {
+        values,
+        errors,
+        touched,
+        isSubmitting,
+        handleChange,
+        handleBlur,
+        handleSubmit,
+        resetForm,
+        setIsSubmitting
+    };
+};
 
 const EmployeeAuth = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
-    const [formData, setFormData] = useState({
+
+    const initialValues = {
         firstName: '',
         lastName: '',
         email: '',
@@ -12,36 +174,41 @@ const EmployeeAuth = () => {
         phone: '',
         employeeId: '',
         department: ''
-    });
-
-    const handleInputChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        console.log('Form submitted:', formData);
+    const form = useFormValidation(initialValues, isLogin);
+
+    const onSubmit = (values) => {
+        console.log('Form submitted:', values);
+        if (isLogin) {
+            console.log('Login attempt:', { email: values.email, password: values.password });
+        } else {
+            console.log('Signup attempt:', values);
+        }
     };
 
     const toggleAuthMode = () => {
         setIsLogin(!isLogin);
-        setFormData({
-            firstName: '',
-            lastName: '',
-            email: '',
-            password: '',
-            confirmPassword: '',
-            phone: '',
-            employeeId: '',
-            department: ''
-        });
+        form.resetForm();
+        setShowPassword(false);
     };
 
     const goBack = () => {
         console.log('Going back to role selection');
+    };
+
+    // Helper function to get field error state
+    const getFieldError = (fieldName) => {
+        return form.touched[fieldName] && form.errors[fieldName];
+    };
+
+    // Helper function to get input class names
+    const getInputClassName = (fieldName) => {
+        const baseClass = "w-full px-3 py-2 text-sm border rounded-lg focus:ring-1 focus:border-transparent outline-none transition-all";
+        const errorClass = "border-red-300 focus:ring-red-500";
+        const normalClass = "border-gray-300 focus:ring-purple-500";
+
+        return `${baseClass} ${getFieldError(fieldName) ? errorClass : normalClass}`;
     };
 
     return (
@@ -80,7 +247,6 @@ const EmployeeAuth = () => {
                             </p>
                         </div>
 
-                        {/* Form */}
                         <div className={`space-y-${isLogin ? '4' : '3'}`}>
                             {!isLogin && (
                                 <div className="grid grid-cols-2 gap-2">
@@ -91,11 +257,14 @@ const EmployeeAuth = () => {
                                         <input
                                             type="text"
                                             name="firstName"
-                                            value={formData.firstName}
-                                            onChange={handleInputChange}
-                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                                            required
+                                            value={form.values.firstName}
+                                            onChange={form.handleChange}
+                                            onBlur={form.handleBlur}
+                                            className={getInputClassName('firstName')}
                                         />
+                                        {getFieldError('firstName') && (
+                                            <p className="text-red-500 text-xs mt-1">{form.errors.firstName}</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -104,11 +273,14 @@ const EmployeeAuth = () => {
                                         <input
                                             type="text"
                                             name="lastName"
-                                            value={formData.lastName}
-                                            onChange={handleInputChange}
-                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                                            required
+                                            value={form.values.lastName}
+                                            onChange={form.handleChange}
+                                            onBlur={form.handleBlur}
+                                            className={getInputClassName('lastName')}
                                         />
+                                        {getFieldError('lastName') && (
+                                            <p className="text-red-500 text-xs mt-1">{form.errors.lastName}</p>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -120,12 +292,15 @@ const EmployeeAuth = () => {
                                 <input
                                     type="email"
                                     name="email"
-                                    value={formData.email}
-                                    onChange={handleInputChange}
+                                    value={form.values.email}
+                                    onChange={form.handleChange}
+                                    onBlur={form.handleBlur}
                                     placeholder="your.email@company.com"
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                                    required
+                                    className={getInputClassName('email')}
                                 />
+                                {getFieldError('email') && (
+                                    <p className="text-red-500 text-xs mt-1">{form.errors.email}</p>
+                                )}
                             </div>
 
                             <div>
@@ -136,11 +311,11 @@ const EmployeeAuth = () => {
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         name="password"
-                                        value={formData.password}
-                                        onChange={handleInputChange}
+                                        value={form.values.password}
+                                        onChange={form.handleChange}
+                                        onBlur={form.handleBlur}
                                         placeholder="••••••••••••"
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all pr-10"
-                                        required
+                                        className={`${getInputClassName('password')} pr-10`}
                                     />
                                     <button
                                         type="button"
@@ -156,6 +331,9 @@ const EmployeeAuth = () => {
                                         </svg>
                                     </button>
                                 </div>
+                                {getFieldError('password') && (
+                                    <p className="text-red-500 text-xs mt-1">{form.errors.password}</p>
+                                )}
                                 {isLogin && (
                                     <div className="text-right mt-1">
                                         <a href="#" className="text-xs text-gray-500 hover:text-gray-700">
@@ -174,12 +352,15 @@ const EmployeeAuth = () => {
                                         <input
                                             type="password"
                                             name="confirmPassword"
-                                            value={formData.confirmPassword}
-                                            onChange={handleInputChange}
+                                            value={form.values.confirmPassword}
+                                            onChange={form.handleChange}
+                                            onBlur={form.handleBlur}
                                             placeholder="••••••••••••"
-                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                                            required
+                                            className={getInputClassName('confirmPassword')}
                                         />
+                                        {getFieldError('confirmPassword') && (
+                                            <p className="text-red-500 text-xs mt-1">{form.errors.confirmPassword}</p>
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-2">
@@ -190,11 +371,14 @@ const EmployeeAuth = () => {
                                             <input
                                                 type="tel"
                                                 name="phone"
-                                                value={formData.phone}
-                                                onChange={handleInputChange}
-                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                                                required
+                                                value={form.values.phone}
+                                                onChange={form.handleChange}
+                                                onBlur={form.handleBlur}
+                                                className={getInputClassName('phone')}
                                             />
+                                            {getFieldError('phone') && (
+                                                <p className="text-red-500 text-xs mt-1">{form.errors.phone}</p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -203,11 +387,14 @@ const EmployeeAuth = () => {
                                             <input
                                                 type="text"
                                                 name="employeeId"
-                                                value={formData.employeeId}
-                                                onChange={handleInputChange}
-                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                                                required
+                                                value={form.values.employeeId}
+                                                onChange={form.handleChange}
+                                                onBlur={form.handleBlur}
+                                                className={getInputClassName('employeeId')}
                                             />
+                                            {getFieldError('employeeId') && (
+                                                <p className="text-red-500 text-xs mt-1">{form.errors.employeeId}</p>
+                                            )}
                                         </div>
                                     </div>
 
@@ -217,10 +404,10 @@ const EmployeeAuth = () => {
                                         </label>
                                         <select
                                             name="department"
-                                            value={formData.department}
-                                            onChange={handleInputChange}
-                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-transparent outline-none transition-all bg-white"
-                                            required
+                                            value={form.values.department}
+                                            onChange={form.handleChange}
+                                            onBlur={form.handleBlur}
+                                            className={`${getInputClassName('department')} bg-white`}
                                         >
                                             <option value="">Select Department</option>
                                             <option value="hr">Human Resources</option>
@@ -234,15 +421,20 @@ const EmployeeAuth = () => {
                                             <option value="customer-service">Customer Service</option>
                                             <option value="other">Other</option>
                                         </select>
+                                        {getFieldError('department') && (
+                                            <p className="text-red-500 text-xs mt-1">{form.errors.department}</p>
+                                        )}
                                     </div>
                                 </>
                             )}
 
                             <button
-                                onClick={handleSubmit}
-                                className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors ${isLogin ? 'mt-5' : 'mt-4'}`}
+                                type="button"
+                                onClick={form.handleSubmit(onSubmit)}
+                                disabled={form.isSubmitting}
+                                className={`w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white font-medium py-2.5 px-4 rounded-lg transition-colors ${isLogin ? 'mt-5' : 'mt-4'}`}
                             >
-                                {isLogin ? 'Login' : 'Sign up'}
+                                {form.isSubmitting ? 'Processing...' : (isLogin ? 'Login' : 'Sign up')}
                             </button>
 
                             <div className={`relative ${isLogin ? 'my-5' : 'my-4'}`}>
@@ -255,7 +447,7 @@ const EmployeeAuth = () => {
                             </div>
 
                             <div className={`space-y-${isLogin ? '3' : '2'}`}>
-                                <button className="w-full flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                <button type="button" className="w-full flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                                     <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -265,7 +457,7 @@ const EmployeeAuth = () => {
                                     <span className="text-sm">Continue with Google</span>
                                 </button>
 
-                                <button className="w-full flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                <button type="button" className="w-full flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                                     <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                                     </svg>
@@ -277,6 +469,7 @@ const EmployeeAuth = () => {
                                 <p className="text-sm text-gray-600">
                                     {isLogin ? "You dont have an account yet? " : "Already have an account? "}
                                     <button
+                                        type="button"
                                         onClick={toggleAuthMode}
                                         className="text-purple-600 hover:text-purple-700 font-medium"
                                     >
@@ -389,13 +582,13 @@ const EmployeeAuth = () => {
                                 <svg className="w-4 h-4 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
-                                <span className="text-xs">Interactive training modules</span>
+                                <span className="text-xs">Real-time progress tracking</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };
 
