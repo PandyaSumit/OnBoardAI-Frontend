@@ -5,16 +5,25 @@ import Dashboard from './pages/Dashboard';
 import RoleSelection from './pages/auth/RoleSelection';
 import OrganizationAuth from './pages/auth/OrganizationAuth';
 import EmployeeAuth from './pages/auth/EmployeeAuth';
+import PrivateRoute from './components/PrivateRoute';
+import PublicRoute from './components/PublicRoute';
 
 function App() {
     return (
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<Layout />}>
-                    <Route index element={<RoleSelection />} />
-                    <Route path="dashboard" element={<Dashboard />} />
-                    <Route path="organization-auth" element={<OrganizationAuth />} />
-                    <Route path="employee-auth" element={<EmployeeAuth />} />
+                    {/* Public Routes */}
+                    <Route element={<PublicRoute />}>
+                        <Route index element={<RoleSelection />} />
+                        <Route path="organization-auth" element={<OrganizationAuth />} />
+                        <Route path="employee-auth" element={<EmployeeAuth />} />
+                    </Route>
+
+                    {/* Private Routes */}
+                    <Route element={<PrivateRoute />}>
+                        <Route path="dashboard" element={<Dashboard />} />
+                    </Route>
                 </Route>
             </Routes>
         </BrowserRouter>

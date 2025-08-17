@@ -4,11 +4,10 @@ import Sidebar from './Sidebar';
 import { Outlet, useLocation } from 'react-router-dom';
 
 const Layout = () => {
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const location = useLocation();
 
-    // Pages where we don't want Header and Sidebar
     const authPages = ['/', '/organization-auth', '/employee-auth'];
     const isAuthPage = authPages.includes(location.pathname);
 
@@ -20,7 +19,6 @@ const Layout = () => {
         setMobileOpen(prev => !prev);
     };
 
-    // If it's an auth page, render only the Outlet without Header/Sidebar
     if (isAuthPage) {
         return (
             <div className="min-h-screen">
@@ -29,7 +27,6 @@ const Layout = () => {
         );
     }
 
-    // For dashboard and other pages, render with Header/Sidebar
     return (
         <div className="flex h-screen overflow-hidden dark:bg-gray-900 text-gray-800 dark:text-white">
             <Sidebar

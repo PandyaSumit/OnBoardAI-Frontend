@@ -3,6 +3,40 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL;
 
+export const fetchCurrentUser = createAsyncThunk(
+    "auth/fetchCurrentUser",
+    async (_, { rejectWithValue }) => {
+        try {
+            const token = localStorage.getItem("authToken");
+            const userType = localStorage.getItem("userType");
+
+            if (!token || !userType) {
+                return rejectWithValue("No token or userType found");
+            }
+
+            const config = {
+                headers: {  
+                    Authorization: `Bearer ${token}`,
+                },
+            };
+
+            // Choose API based on role
+            let response;
+            if (userType === "organization") {
+                response = await axios.get(`${API_URL}/org/me`, config);
+            } else {
+                response = await axios.get(`${API_URL}/emp/me`, config);
+            }
+
+            return { user: response.data, userType, token };
+        } catch (error) {
+            return rejectWithValue(
+                error.response?.data?.message || "Failed to fetch user"
+            );
+        }
+    }
+);
+
 export const registerOrganization = createAsyncThunk(
     'auth/registerOrganization',
     async (orgData, { rejectWithValue }) => {
@@ -124,14 +158,36 @@ const authSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(fetchCurrentUser.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchCurrentUser.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.user = action.payload.user;
+                state.userType = action.payload.userType;
+                state.token = action.payload.token;
+                state.isAuthenticated = true;
+            })
+            .addCase(fetchCurrentUser.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+                state.user = null;
+                state.token = null;
+                state.userType = null;
+                state.isAuthenticated = false;
+            })
+
             // Organization Registration
             .addCase(registerOrganization.pending, (state) => {
                 state.isLoading = true;
                 state.error = null;
             })
             .addCase(registerOrganization.fulfilled, (state, action) => {
+
+                console.log('action.payload', action.payload)
                 state.isLoading = false;
-                state.user = action.payload.organization;
+                state.user = action.payload.org;
                 state.token = action.payload.token;
                 state.userType = 'organization';
                 state.isAuthenticated = true;
@@ -148,7 +204,7 @@ const authSlice = createSlice({
             })
             .addCase(loginOrganization.fulfilled, (state, action) => {
                 state.isLoading = false;
-                state.user = action.payload.organization;
+                state.user = action.payload.org;
                 state.token = action.payload.token;
                 state.userType = 'organization';
                 state.isAuthenticated = true;

@@ -13,6 +13,9 @@ import {
     Menu
 } from 'lucide-react';
 import useDarkMode from '../../utils/useDarkMode';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { fetchCurrentUser, logout } from '../../store/slices/authSlice';
 
 const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
     const [theme, toggleTheme] = useDarkMode();
@@ -22,6 +25,12 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
     const [notificationCount, setNotificationCount] = useState(3);
     const dropdownRef = useRef();
     const searchRef = useRef();
+
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const { user } = useSelector((state) => state.auth)
+    console.log('user: ', user);
+
 
     useEffect(() => {
         const handler = (e) => {
@@ -54,6 +63,11 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [searchOpen]);
 
+    const handleLogout = () => {
+        dispatch(logout());
+        navigate("/");
+    };
+
     const handleNotificationClick = () => {
         setNotificationCount(0);
     };
@@ -78,13 +92,15 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
         { type: 'suggestion', text: 'Settings', icon: '⚙️' },
     ];
 
+    useEffect(() => {
+        dispatch(fetchCurrentUser());
+    }, [dispatch]);
+
     return (
         <div className={theme === 'dark' ? 'dark' : ''}>
             <header className="w-full sticky top-0 z-50 bg-white/60 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 h-14">
                 <div className="flex items-center justify-between px-5 py-3 h-full">
-                    {/* Left Section - Logo with Sidebar Toggle */}
                     <div className="flex items-center gap-3">
-                        {/* Sidebar Toggle Button - Desktop */}
                         <button
                             onClick={toggleSidebar}
                             className="hidden lg:flex p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -93,7 +109,6 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
                             <Menu size={20} className="text-gray-600 dark:text-gray-300" />
                         </button>
 
-                        {/* Mobile Sidebar Toggle */}
                         <button
                             onClick={toggleMobileSidebar}
                             className="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -102,7 +117,6 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
                             <Menu size={20} className="text-gray-600 dark:text-gray-300" />
                         </button>
 
-                        {/* Logo */}
                         <div className="flex items-center space-x-1 text-lg font-semibold">
                             <span className="bg-gradient-to-r from-[#FF6B00] to-[#FF0080] bg-clip-text text-transparent">
                                 Onboard
@@ -169,9 +183,7 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
                         </div>
                     </div>
 
-                    {/* Right Section - Controls */}
                     <div className="flex items-center gap-3">
-                        {/* Theme Toggle */}
                         <button
                             onClick={toggleTheme}
                             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
@@ -184,7 +196,6 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
                             )}
                         </button>
 
-                        {/* Notifications */}
                         <button
                             onClick={handleNotificationClick}
                             className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
@@ -198,7 +209,6 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
                             )}
                         </button>
 
-                        {/* Profile Dropdown */}
                         <div className="relative" ref={dropdownRef}>
                             <button
                                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -224,8 +234,8 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
                                                 SP
                                             </div>
                                             <div className="text-sm">
-                                                <p className="font-semibold text-gray-900 dark:text-white">Sarah Parker</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">sarah@onboardai.com</p>
+                                                <p className="font-semibold text-gray-900 dark:text-white">{user?.orgName}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
                                             </div>
                                         </div>
 
@@ -234,7 +244,8 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
                                             <MenuItem icon={<User size={16} />} text="My Profile" />
                                             <MenuItem icon={<Settings size={16} />} text="Settings" />
                                             <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                                            <MenuItem icon={<LogOut size={16} />} text="Logout" isLogout />
+                                            <MenuItem onClick={() => handleLogout()} icon={<LogOut size={16} />} text="Logout" isLogout
+                                            />
                                         </div>
                                     </div>
                                 </>
@@ -247,8 +258,9 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
     );
 };
 
-const MenuItem = ({ icon, text, isLogout = false }) => (
+const MenuItem = ({ icon, text, isLogout = false, onClick }) => (
     <button
+        onClick={onClick}
         className={`w-full flex items-center space-x-3 px-4 py-2.5 text-sm transition-all duration-150 
     hover:bg-gray-100 dark:hover:bg-gray-700 ${isLogout ? 'text-red-600 dark:text-red-400 hover:text-red-700' : 'text-gray-700 dark:text-gray-300'}`}
     >
