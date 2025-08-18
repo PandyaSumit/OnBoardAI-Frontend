@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Kanban, FileText, Calendar, BarChart3, Filter, Users, ChevronDown, Plus } from 'lucide-react';
 import BacklogView from '../components/BacklogView';
 import TimelineView from '../components/TimelineView';
@@ -7,6 +7,8 @@ import Column from '../components/Column';
 import AIChatbot from '../components/AiChatBot';
 import TaskDrawer from '../components/TaskDrawer';
 import CreateTaskModal from '../components/modals/CreateTask';
+import { useDispatch, useSelector } from 'react-redux';
+import { createTicketThunk, fetchTickets, updateTicketThunk } from '../store/slices/ticketSlice';
 
 const Dashboard = () => {
     const [activeTab, setActiveTab] = useState('board');
@@ -14,134 +16,10 @@ const Dashboard = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createModalColumn, setCreateModalColumn] = useState('to-do');
     const draggedItemRef = useRef(null);
-    const [columns, setColumns] = useState({
-        'to-do': {
-            id: 'to-do',
-            title: 'TO DO',
-            color: '#DFE1E6',
-            items: [
-                {
-                    id: 'PROJ-101',
-                    title: 'Setup Slack Integration',
-                    description: 'Configure Slack webhook for notifications',
-                    priority: 'highest',
-                    type: 'story',
-                    assignee: 'John Doe',
-                    reporter: 'Jane Smith',
-                    dueDate: '2025-07-28',
-                    tags: ['integration', 'slack'],
-                    status: 'to-do',
-                    storyPoints: 5,
-                    comments: 2
-                },
-                {
-                    id: 'PROJ-102',
-                    title: 'Database Migration Script',
-                    description: 'Migrate user data to new schema',
-                    priority: 'high',
-                    type: 'task',
-                    assignee: 'Jane Smith',
-                    reporter: 'John Doe',
-                    dueDate: '2025-07-30',
-                    tags: ['database', 'migration'],
-                    status: 'to-do',
-                    storyPoints: 8,
-                    comments: 0
-                }
-            ]
-        },
-        'in-progress': {
-            id: 'in-progress',
-            title: 'IN PROGRESS',
-            color: '#0052CC',
-            items: [
-                {
-                    id: 'PROJ-103',
-                    title: 'API Rate Limiting Implementation',
-                    description: 'Implement rate limiting for external APIs to prevent abuse',
-                    priority: 'highest',
-                    type: 'bug',
-                    assignee: 'Mike Johnson',
-                    reporter: 'Alice Cooper',
-                    dueDate: '2025-07-26',
-                    tags: ['api', 'security'],
-                    status: 'in-progress',
-                    storyPoints: 13,
-                    comments: 5
-                },
-                {
-                    id: 'PROJ-104',
-                    title: 'Email Automation Flow',
-                    description: 'Create automated email sequences for user onboarding',
-                    priority: 'medium',
-                    type: 'story',
-                    assignee: 'Sarah Wilson',
-                    reporter: 'David Brown',
-                    dueDate: '2025-07-29',
-                    tags: ['email', 'automation'],
-                    status: 'in-progress',
-                    storyPoints: 3,
-                    comments: 1
-                }
-            ]
-        },
-        'code-review': {
-            id: 'code-review',
-            title: 'CODE REVIEW',
-            color: '#FFAB00',
-            items: [
-                {
-                    id: 'PROJ-105',
-                    title: 'Security Audit Implementation',
-                    description: 'Review and implement security best practices',
-                    priority: 'highest',
-                    type: 'epic',
-                    assignee: 'David Brown',
-                    reporter: 'Admin User',
-                    dueDate: '2025-07-27',
-                    tags: ['security', 'audit'],
-                    status: 'code-review',
-                    storyPoints: 21,
-                    comments: 8
-                }
-            ]
-        },
-        'done': {
-            id: 'done',
-            title: 'DONE',
-            color: '#36B37E',
-            items: [
-                {
-                    id: 'PROJ-106',
-                    title: 'User Authentication System',
-                    description: 'Implement OAuth 2.0 authentication with multiple providers',
-                    priority: 'highest',
-                    type: 'story',
-                    assignee: 'Alice Cooper',
-                    reporter: 'John Doe',
-                    dueDate: '2025-07-25',
-                    tags: ['auth', 'security'],
-                    status: 'done',
-                    storyPoints: 8,
-                    comments: 12
-                },
-                {
-                    id: 'PROJ-107',
-                    title: 'Dashboard Analytics Integration',
-                    description: 'Add comprehensive analytics tracking to dashboard',
-                    priority: 'low',
-                    type: 'task',
-                    assignee: 'Bob Miller',
-                    reporter: 'Sarah Wilson',
-                    dueDate: '2025-07-24',
-                    tags: ['analytics', 'tracking'],
-                    status: 'done',
-                    storyPoints: 2,
-                    comments: 3
-                }
-            ]
-        }
-    });
+    const [columns, setColumns] = useState({});
+
+    const dispatch = useDispatch();
+    const { tickets } = useSelector((state) => state.tickets);
 
     const openTaskDrawer = (task) => setSelectedTask(task);
     const closeTaskDrawer = () => setSelectedTask(null);
@@ -151,14 +29,29 @@ const Dashboard = () => {
         setShowCreateModal(true);
     };
 
-    const addNewIssue = (newIssue) => {
-        setColumns(prevColumns => ({
-            ...prevColumns,
-            [newIssue.status]: {
-                ...prevColumns[newIssue.status],
-                items: [...prevColumns[newIssue.status].items, newIssue]
+    const addNewIssue = async (newIssue) => {
+        console.log('newIssue: ', newIssue);
+        try {
+            const resultAction = await dispatch(createTicketThunk(newIssue));
+            console.log('resultAction: ', resultAction);
+            if (createTicketThunk.fulfilled.match(resultAction)) {
+                console.log("calling1")
+
+                const ticket = resultAction.payload;
+                console.log('ticket: ', ticket);
+                setColumns((prev) => ({
+                    ...prev,
+                    [ticket.status]: {
+                        ...prev[ticket.status],
+                        items: prev[ticket.status]?.items ? [...prev[ticket.status].items, ticket] : [ticket],
+                    },
+                }));
             }
-        }));
+
+            console.log("calling2")
+        } catch (err) {
+            console.error('Failed to create issue:', err);
+        }
     };
 
     const handleDragStart = (e, item) => {
@@ -171,29 +64,43 @@ const Dashboard = () => {
         e.dataTransfer.dropEffect = 'move';
     };
 
-    const handleDrop = (e, targetColumnId) => {
+    const handleDrop = async (e, targetColumnId) => {
         e.preventDefault();
         const draggedItem = draggedItemRef.current;
+        console.log('draggedItem: ', draggedItem);
         if (!draggedItem) return;
 
         const sourceColumnId = draggedItem.status;
+        console.log('   : ', sourceColumnId);
         if (sourceColumnId === targetColumnId) return;
 
-        setColumns(prevColumns => {
-            const newColumns = { ...prevColumns };
-            newColumns[sourceColumnId] = {
-                ...newColumns[sourceColumnId],
-                items: newColumns[sourceColumnId].items.filter(i => i.id !== draggedItem.id)
-            };
-            newColumns[targetColumnId] = {
-                ...newColumns[targetColumnId],
-                items: [...newColumns[targetColumnId].items, { ...draggedItem, status: targetColumnId }]
-            };
-            return newColumns;
+        const updatedTicket = { ...draggedItem, status: targetColumnId };
+
+        setColumns(prev => {
+            const newCols = { ...prev };
+
+            const sourceColumn = { ...newCols[sourceColumnId], items: [...newCols[sourceColumnId].items] };
+            const targetColumn = { ...newCols[targetColumnId], items: [...newCols[targetColumnId].items] };
+
+            sourceColumn.items = sourceColumn.items.filter(i => i._id !== draggedItem._id);
+
+            targetColumn.items.push(updatedTicket);
+
+            newCols[sourceColumnId] = sourceColumn;
+            newCols[targetColumnId] = targetColumn;
+
+            return newCols;
         });
+
+        try {
+            await dispatch(updateTicketThunk({ id: draggedItem._id, updatedData: updatedTicket }));
+        } catch (err) {
+            console.error('Failed to move ticket:', err);
+        }
 
         draggedItemRef.current = null;
     };
+
 
     const navigation = [
         { id: 'board', label: 'Board', icon: Kanban },
@@ -232,6 +139,31 @@ const Dashboard = () => {
         }
     };
 
+    useEffect(() => {
+        dispatch(fetchTickets());
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (tickets.length) {
+            setColumns(prev => {
+                const colMap = { ...prev }; // keep existing column structure
+                tickets.forEach(ticket => {
+                    if (!ticket.settings || !ticket.settings.columns) return;
+                    ticket.settings.columns.forEach(col => {
+                        if (!colMap[col.id]) colMap[col.id] = { ...col, items: [] };
+                    });
+                    // Remove ticket from any column it's in
+                    Object.values(colMap).forEach(c => {
+                        c.items = c.items.filter(i => i._id !== ticket._id);
+                    });
+                    // Add ticket to its current column
+                    if (colMap[ticket.status]) colMap[ticket.status].items.push(ticket);
+                });
+                return colMap;
+            });
+        }
+    }, [tickets]);
+
     return (
         <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col">
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 overflow-x-auto scrollbar-hide">
@@ -254,7 +186,6 @@ const Dashboard = () => {
                             );
                         })}
                     </nav>
-                    {/* Filters */}
                     <div className="flex items-center gap-2">
                         <button className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
                             <Filter className="w-4 h-4" />
@@ -276,12 +207,10 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Main */}
             <div className="flex-1 flex flex-col">
                 {renderContent()}
             </div>
 
-            {/* Create Issue Modal */}
             <CreateTaskModal
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}

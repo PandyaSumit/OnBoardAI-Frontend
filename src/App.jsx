@@ -7,6 +7,7 @@ import OrganizationAuth from './pages/auth/OrganizationAuth';
 import EmployeeAuth from './pages/auth/EmployeeAuth';
 import PrivateRoute from './components/PrivateRoute';
 import PublicRoute from './components/PublicRoute';
+import AIAgentViewPanel from './pages/AiWorkflow';
 
 function App() {
     return (
@@ -23,6 +24,7 @@ function App() {
                     {/* Private Routes */}
                     <Route element={<PrivateRoute />}>
                         <Route path="dashboard" element={<Dashboard />} />
+                        <Route path="workflows" element={<AIAgentViewPanel />} />
                     </Route>
                 </Route>
             </Routes>

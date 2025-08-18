@@ -22,7 +22,7 @@ const Card = ({ item, onDragStart, onClick }) => {
             default: return <Target className="w-3.5 h-3.5 text-gray-500" />;
         }
     };
-
+    console.log('item', item)
     return (
         <div
             key={item.id}
@@ -31,7 +31,6 @@ const Card = ({ item, onDragStart, onClick }) => {
             onClick={() => onClick(item)}
             className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 p-3 hover:shadow-md dark:hover:bg-gray-600 transition-all cursor-move group"
         >
-            {/* Title */}
             <div className="flex items-start gap-2 mb-2">
                 <div className="flex-shrink-0 mt-0.5">
                     {getTypeIcon(item.type)}
@@ -46,20 +45,17 @@ const Card = ({ item, onDragStart, onClick }) => {
                 </div>
             </div>
 
-            {/* ID */}
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 font-mono">
-                {item.id}
+                {item._id}
             </div>
 
-            {/* Description */}
             {item.description && (
                 <p className="text-xs text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
                     {item.description}
                 </p>
             )}
 
-            {/* Tags */}
-            {item.tags.length > 0 && (
+            {/* {item?.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-3">
                     {item.tags.slice(0, 2).map((tag) => (
                         <span
@@ -75,22 +71,18 @@ const Card = ({ item, onDragStart, onClick }) => {
                         </span>
                     )}
                 </div>
-            )}
+            )} */}
 
-            {/* Footer */}
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    {/* Priority */}
-                    {getPriorityIcon(item.priority)}
+                    {getPriorityIcon(item.settings.priorities.name)}
 
-                    {/* Story Points */}
                     {item.storyPoints && (
                         <div className="bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs px-1.5 py-0.5 rounded font-medium">
                             {item.storyPoints}
                         </div>
                     )}
 
-                    {/* Comments */}
                     {item.comments > 0 && (
                         <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
                             <MessageSquare className="w-3 h-3" />
@@ -99,11 +91,10 @@ const Card = ({ item, onDragStart, onClick }) => {
                     )}
                 </div>
 
-                {/* Assignee */}
                 <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                     {item.assignee.split(' ').map(n => n[0]).join('')}
                 </div>
-            </div>
+            </div> */}
         </div>
     );
 };
