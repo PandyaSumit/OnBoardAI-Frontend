@@ -247,6 +247,7 @@ const Dashboard = () => {
         const Icon = config.icon;
         return <Icon className={`w-3 h-3 ${config.color}`} />;
     };
+    console.log('viewMode', viewMode)
 
     const KanbanBoard = () => (
         <div className="flex-1 overflow-hidden">
@@ -254,37 +255,45 @@ const Dashboard = () => {
                 setIsRefreshing={setIsRefreshing}
                 isRefreshing={isRefreshing}
             />
-
             {/* Board content */}
             <div className="h-full overflow-x-auto">
                 <div className="flex gap-4 h-full min-w-max p-6">
-                    {Object.values(memoizedColumns).map((column) => (
-                        <Column
-                            key={column.id}
-                            column={column}
-                            onDragOver={handleDragOver}
-                            onDrop={handleDrop}
-                            onDragStart={handleDragStart}
-                            onCardClick={openTaskDrawer}
-                            onCreateIssue={handleCreateIssue}
-                            selectedItems={selectedItems}
-                            onSelectItem={(itemId) => dispatch(toggleSelectItem(itemId))}
-                            isDragTarget={draggedOverColumnRef.current === column.id}
-                        />
-                    ))}
+                    {viewMode !== "list" ? (
+                        <>
+                            {Object.values(memoizedColumns).map((column) => (
+                                <Column
+                                    key={column.id}
+                                    column={column}
+                                    onDragOver={handleDragOver}
+                                    onDrop={handleDrop}
+                                    onDragStart={handleDragStart}
+                                    onCardClick={openTaskDrawer}
+                                    onCreateIssue={handleCreateIssue}
+                                    selectedItems={selectedItems}
+                                    onSelectItem={(itemId) => dispatch(toggleSelectItem(itemId))}
+                                    isDragTarget={draggedOverColumnRef.current === column.id}
+                                />
+                            ))}
 
-                    <div className="flex-shrink-0 w-80 p-4">
-                        <button className="w-full border-2 border-dashed border-gray-300 
-                                         dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 
-                                         hover:border-blue-300 dark:hover:border-blue-400 hover:text-blue-600 
-                                         dark:hover:text-blue-400 transition-all duration-200 flex p-3 
-                                         items-center justify-center gap-2">
-                            <Plus className="w-8 h-8" />
-                            <span className="text-sm font-medium">Add Column</span>
-                        </button>
-                    </div>
+                            <div className="flex-shrink-0 w-80 p-4">
+                                <button
+                                    className="w-full border-2 border-dashed border-gray-300 
+                       dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 
+                       hover:border-blue-300 dark:hover:border-blue-400 hover:text-blue-600 
+                       dark:hover:text-blue-400 transition-all duration-200 flex p-3 
+                       items-center justify-center gap-2"
+                                >
+                                    <Plus className="w-8 h-8" />
+                                    <span className="text-sm font-medium">Add Column</span>
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <ListView />
+                    )}
                 </div>
             </div>
+
         </div>
     );
 
@@ -400,7 +409,7 @@ const Dashboard = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'board':
-                return viewMode === 'list' ? <ListView /> : <KanbanBoard />;
+                return <KanbanBoard />;
             case 'backlog':
                 return <BacklogView />;
             case 'timeline':
