@@ -41,7 +41,7 @@ const Dashboard = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createModalColumn, setCreateModalColumn] = useState('to-do');
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    // const [searchQuery, setSearchQuery] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const draggedItemRef = useRef(null);
@@ -86,13 +86,13 @@ const Dashboard = () => {
     }, [isStale, dispatch]);
 
     // Debounced search
-    useEffect(() => {
-        const debounceTimer = setTimeout(() => {
-            dispatch(setFilters({ search: searchQuery }));
-        }, 300);
+    // useEffect(() => {
+    //     const debounceTimer = setTimeout(() => {
+    //         dispatch(setFilters({ search: searchQuery }));
+    //     }, 300);
 
-        return () => clearTimeout(debounceTimer);
-    }, [searchQuery, dispatch]);
+    //     return () => clearTimeout(debounceTimer);
+    // }, [searchQuery, dispatch]);
 
     // Auto-save functionality
     const scheduleAutoSave = () => {
@@ -209,7 +209,6 @@ const Dashboard = () => {
         { value: 'reporter', label: 'Reporter' }
     ];
 
-    // Helper functions
     const getTypeIcon = (type) => {
         const icons = {
             story: Bookmark,
@@ -255,7 +254,6 @@ const Dashboard = () => {
                 setIsRefreshing={setIsRefreshing}
                 isRefreshing={isRefreshing}
             />
-            {/* Board content */}
             <div className="h-full overflow-x-auto">
                 <div className="flex gap-4 h-full min-w-max p-6">
                     {viewMode !== "list" ? (
@@ -421,12 +419,10 @@ const Dashboard = () => {
         }
     };
 
-    // Initialize data
     useEffect(() => {
         dispatch(fetchTickets());
     }, [dispatch]);
 
-    // Keyboard shortcuts
     useEffect(() => {
         const handleKeyPress = (e) => {
             if (e.ctrlKey || e.metaKey) {
@@ -452,7 +448,6 @@ const Dashboard = () => {
                 }
             }
 
-            // Tab shortcuts
             if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey) {
                 if (document.activeElement?.tagName !== 'INPUT') {
                     setActiveTab('board');
@@ -462,11 +457,10 @@ const Dashboard = () => {
 
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [filteredTickets.length, dispatch]);
+    }, [filteredTickets.length, dispatch, handleRefresh]);
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
-            {/* Enhanced Navigation Header */}
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4">
                 <div className="flex items-center justify-between">
                     <nav className="flex space-x-8">
@@ -489,7 +483,6 @@ const Dashboard = () => {
                                     <Icon className="w-4 h-4" />
                                     {item.label}
 
-                                    {/* Keyboard shortcut hint */}
                                     <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 
                                                    bg-gray-800 text-white text-xs px-2 py-1 rounded 
                                                    opacity-0 group-hover:opacity-100 transition-opacity
@@ -534,7 +527,6 @@ const Dashboard = () => {
                             )}
                         </button>
 
-                        {/* Sort dropdown */}
                         <div className="relative">
                             <select
                                 value={`${sortBy.field}-${sortBy.direction}`}
@@ -555,7 +547,6 @@ const Dashboard = () => {
                             <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         </div>
 
-                        {/* Group by dropdown */}
                         <div className="relative">
                             <select
                                 value={groupBy || ''}
@@ -572,7 +563,6 @@ const Dashboard = () => {
                             <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         </div>
 
-                        {/* Create button */}
                         <button
                             onClick={() => handleCreateIssue()}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 
@@ -585,81 +575,89 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Advanced Filters Panel */}
             {showAdvancedFilters && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold">Advanced Filters</h3>
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-[420px] max-h-[85vh] flex flex-col">
+                        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 p-5">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                Advanced Filters
+                            </h3>
                             <button
                                 onClick={() => setShowAdvancedFilters(false)}
-                                className="text-gray-400 hover:text-gray-600"
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                             >
-                                ×
+                                ✕
                             </button>
                         </div>
 
-                        {/* Filter controls */}
-                        <div className="space-y-4">
-                            {/* Priority filter */}
+                        <div className="flex-1 overflow-y-auto p-5 space-y-6">
                             <div>
-                                <label className="block text-sm font-medium mb-2">Priority</label>
-                                <div className="space-y-1">
-                                    {['highest', 'high', 'medium', 'low', 'lowest'].map(priority => (
-                                        <label key={priority} className="flex items-center gap-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                    Priority
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {["highest", "high", "medium", "low", "lowest"].map((priority) => (
+                                        <label
+                                            key={priority}
+                                            className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                        >
                                             <input
                                                 type="checkbox"
                                                 checked={filters.priority.includes(priority)}
                                                 onChange={(e) => {
                                                     const newPriorities = e.target.checked
                                                         ? [...filters.priority, priority]
-                                                        : filters.priority.filter(p => p !== priority);
+                                                        : filters.priority.filter((p) => p !== priority);
                                                     dispatch(setFilters({ priority: newPriorities }));
                                                 }}
-                                                className="rounded border-gray-300"
+                                                className="text-blue-600 focus:ring-blue-500 rounded-md border-gray-300 dark:border-gray-600"
                                             />
-                                            <span className="text-sm capitalize">{priority}</span>
+                                            <span className="text-sm capitalize text-gray-800 dark:text-gray-200">
+                                                {priority}
+                                            </span>
                                         </label>
                                     ))}
                                 </div>
                             </div>
-
-                            {/* Type filter */}
                             <div>
-                                <label className="block text-sm font-medium mb-2">Type</label>
-                                <div className="space-y-1">
-                                    {['story', 'task', 'bug', 'epic'].map(type => (
-                                        <label key={type} className="flex items-center gap-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                    Type
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {["story", "task", "bug", "epic"].map((type) => (
+                                        <label
+                                            key={type}
+                                            className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                        >
                                             <input
                                                 type="checkbox"
                                                 checked={filters.type.includes(type)}
                                                 onChange={(e) => {
                                                     const newTypes = e.target.checked
                                                         ? [...filters.type, type]
-                                                        : filters.type.filter(t => t !== type);
+                                                        : filters.type.filter((t) => t !== type);
                                                     dispatch(setFilters({ type: newTypes }));
                                                 }}
-                                                className="rounded border-gray-300"
+                                                className="text-blue-600 focus:ring-blue-500 rounded-md border-gray-300 dark:border-gray-600"
                                             />
-                                            <span className="text-sm capitalize">{type}</span>
+                                            <span className="text-sm capitalize text-gray-800 dark:text-gray-200">
+                                                {type}
+                                            </span>
                                         </label>
                                     ))}
                                 </div>
                             </div>
                         </div>
-
-                        <div className="flex gap-2 mt-6">
+                        <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex gap-3 sticky bottom-0 bg-white dark:bg-gray-900 rounded-b-2xl">
                             <button
                                 onClick={() => dispatch(clearFilters())}
-                                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 
-                                         rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             >
                                 Clear All
                             </button>
                             <button
                                 onClick={() => setShowAdvancedFilters(false)}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded text-sm 
-                                         hover:bg-blue-700"
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
                             >
                                 Apply
                             </button>
@@ -667,6 +665,7 @@ const Dashboard = () => {
                     </div>
                 </div>
             )}
+
 
             {renderContent()}
 

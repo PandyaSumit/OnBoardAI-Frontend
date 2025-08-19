@@ -747,10 +747,9 @@ const AIAgentViewPanel = () => {
     return (
         <div className="flex h-screen">
             {/* AI Agent Chat - Left Side */}
-            <div className="w-96 border-r border-slate-600">
+            <div className="w-96 border-r border-slate-600 h-[calc(100%_-_55px)] fixed">
                 <AIAgentChat />
             </div>
-
             {/* View Panel - Right Side */}
             <div className="flex-1">
                 <ViewPanel />
