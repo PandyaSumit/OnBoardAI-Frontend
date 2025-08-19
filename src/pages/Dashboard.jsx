@@ -398,10 +398,10 @@ const Dashboard = () => {
 
                     {/* Add new column button */}
                     <div className="flex-shrink-0 w-80 p-4">
-                        <button className="w-full h-full min-h-[200px] border-2 border-dashed border-gray-300 
+                        <button className="w-full border-2 border-dashed border-gray-300 
                                          dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 
                                          hover:border-blue-300 dark:hover:border-blue-400 hover:text-blue-600 
-                                         dark:hover:text-blue-400 transition-all duration-200 flex flex-col 
+                                         dark:hover:text-blue-400 transition-all duration-200 flex p-3 
                                          items-center justify-center gap-2">
                             <Plus className="w-8 h-8" />
                             <span className="text-sm font-medium">Add Column</span>

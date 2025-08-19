@@ -13,7 +13,7 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        type: 'task',
+        type: 'story',
         priority: 'medium',
         assignee: '',
         reporter: 'Current User',
