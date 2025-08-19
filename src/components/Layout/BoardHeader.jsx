@@ -3,8 +3,7 @@ import { clearSelection, fetchTickets, setViewMode } from '../../store/slices/ti
 import { useDispatch, useSelector } from 'react-redux';
 import { Grid, Layout, List, RefreshCw } from 'lucide-react';
 
-const BoardHeader = (setIsRefreshing, isRefreshing) => {
-
+const BoardHeader = ({ setIsRefreshing, isRefreshing }) => {
 
     const dispatch = useDispatch();
     const {
@@ -41,8 +40,9 @@ const BoardHeader = (setIsRefreshing, isRefreshing) => {
 
         dispatch(clearSelection());
     };
-
+    console.log('isRefreshing', isRefreshing)
     const handleRefresh = async () => {
+        console.log("first")
         setIsRefreshing(true);
         await dispatch(fetchTickets());
         setIsRefreshing(false);
