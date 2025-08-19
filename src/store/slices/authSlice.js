@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_BACKEND_URL;
+const API_URL = `${import.meta.env.VITE_BACKEND_URL}/auth`;
 
 export const fetchCurrentUser = createAsyncThunk(
     "auth/fetchCurrentUser",
@@ -15,7 +15,7 @@ export const fetchCurrentUser = createAsyncThunk(
             }
 
             const config = {
-                headers: {  
+                headers: {
                     Authorization: `Bearer ${token}`,
                 },
             };

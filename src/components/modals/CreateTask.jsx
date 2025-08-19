@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import {  Bookmark, CheckCircle, Bug, Zap,  X, Flag, User, Tag } from 'lucide-react';
+import { Bookmark, CheckCircle, Bug, Zap, X, Flag, User, Tag } from 'lucide-react';
 
 // Mock components that would normally be imported
 // const BacklogView = () => <div className="p-6">Backlog View - Coming Soon</div>;
@@ -13,7 +13,7 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        type: 'story',
+        type: 'task',
         priority: 'medium',
         assignee: '',
         reporter: 'Current User',
@@ -28,10 +28,10 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
     if (!isOpen) return null;
 
     const issueTypes = [
-        { id: 'story', label: 'Story', icon: Bookmark, color: 'text-green-500' },
+        // { id: 'story', label: 'Story', icon: Bookmark, color: 'text-green-500' },
         { id: 'task', label: 'Task', icon: CheckCircle, color: 'text-blue-500' },
         { id: 'bug', label: 'Bug', icon: Bug, color: 'text-red-500' },
-        { id: 'epic', label: 'Epic', icon: Zap, color: 'text-purple-500' }
+        // { id: 'epic', label: 'Epic', icon: Zap, color: 'text-purple-500' }
     ];
 
     const priorities = [
@@ -77,7 +77,7 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
             tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
             status: formData.status,
             storyPoints: formData.storyPoints ? parseInt(formData.storyPoints) : null,
-            comments: 0
+            comments: []
         };
 
         onCreateIssue(newIssue);
@@ -107,7 +107,6 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
                 </div>
 
                 <div className="p-6 space-y-6">
-                    {/* Issue Type */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Issue Type *</label>
                         <div className="grid grid-cols-2 gap-2">
@@ -209,7 +208,7 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
                         </div>
 
                         {/* Story Points */}
-                        <div>
+                        {/* <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Story Points</label>
                             <input
                                 type="number"
@@ -220,7 +219,7 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
                                 max="100"
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                             />
-                        </div>
+                        </div> */}
                     </div>
 
                     {/* Tags */}

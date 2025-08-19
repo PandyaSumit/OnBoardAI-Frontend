@@ -5,18 +5,39 @@ import {
     ArrowUp, ArrowDown, Minus, CheckCircle2, Circle, AlertTriangle,
     Plus, Send, Eye, UserPlus, Bell
 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { addComment } from '../store/slices/ticketSlice';
 
 const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedTask, setEditedTask] = useState(task || {});
-    const [newComment, setNewComment] = useState('');
     const [activeTab, setActiveTab] = useState('overview');
+    const [comment, setComment] = useState("");
+
+    const dispatch = useDispatch();
+    const { comments } = useSelector((state) => state.tickets);
+    console.log('comments: ', comments);
 
     useEffect(() => {
         if (task) {
             setEditedTask(task);
         }
     }, [task]);
+
+    const handleAddComment = () => {
+        if (!comment.trim()) return;
+
+        dispatch(addComment({
+            ticketId: editedTask._id,
+            content: comment,
+            author: editedTask.reporter,
+            attachments: []
+        }))
+            .unwrap()
+            .then(() => setComment(""))
+            .catch((err) => console.error("Failed to add comment:", err));
+    };
+
 
     if (!task) return null;
 
@@ -74,13 +95,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
         setIsEditing(false);
     };
 
-    const handleAddComment = () => {
-        if (newComment.trim()) {
-            console.log('Adding comment:', newComment);
-            setNewComment('');
-        }
-    };
-
     const PriorityIcon = priorityConfig[task.priority]?.icon || Minus;
     const priorityStyle = priorityConfig[task.priority] || priorityConfig.medium;
     const typeStyle = typeConfig[task.type] || typeConfig.task;
@@ -111,13 +125,10 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
 
     return (
         <>
-            {/* Backdrop */}
             <div
                 className="fixed inset-0 transition-all duration-200 z-40"
                 onClick={onClose}
             />
-
-            {/* Drawer */}
             <div
                 className="fixed right-0 w-full md:w-2/3 lg:w-1/2 xl:w-2/5 bg-white dark:bg-gray-900 shadow-xl border-l border-gray-200 dark:border-gray-700 z-50 flex flex-col"
                 style={{
@@ -126,7 +137,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                     height: 'calc(100vh - 103px)'
                 }}
             >
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                         <div className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${typeStyle.color}`}>
@@ -162,7 +172,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                     </div>
                 </div>
 
-                {/* Tab Navigation */}
                 <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex-shrink-0">
                     {tabs.map((tab) => (
                         <button
@@ -178,11 +187,9 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                     ))}
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 overflow-y-auto min-h-0">
                     {activeTab === 'overview' && (
                         <div className="p-6 space-y-8">
-                            {/* Title Section */}
                             <div className="space-y-4">
                                 <div className="flex items-start justify-between">
                                     {isEditing ? (
@@ -224,7 +231,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                 )}
                             </div>
 
-                            {/* Description */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                     Description
@@ -246,9 +252,7 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                 )}
                             </div>
 
-                            {/* Task Properties */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Status */}
                                 <div className="space-y-3">
                                     <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                         Status
@@ -259,7 +263,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                     </div>
                                 </div>
 
-                                {/* Priority */}
                                 <div className="space-y-3">
                                     <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                         Priority
@@ -270,7 +273,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                     </div>
                                 </div>
 
-                                {/* Assignee */}
                                 <div className="space-y-3">
                                     <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                         Assignee
@@ -283,7 +285,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                     </div>
                                 </div>
 
-                                {/* Reporter */}
                                 <div className="space-y-3">
                                     <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                         Reporter
@@ -296,7 +297,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                     </div>
                                 </div>
 
-                                {/* Due Date */}
                                 <div className="space-y-3">
                                     <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                         Due Date
@@ -307,7 +307,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                     </div>
                                 </div>
 
-                                {/* Story Points */}
                                 <div className="space-y-3">
                                     <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                         Story Points
@@ -318,7 +317,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                 </div>
                             </div>
 
-                            {/* Tags */}
                             <div className="space-y-3">
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                     Tags
@@ -344,17 +342,15 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
 
                     {activeTab === 'activity' && (
                         <div className="p-6 space-y-6">
-                            {/* Comments Header */}
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                    Activity ({mockComments.length})
+                                    Activity ({comments.length})
                                 </h3>
                                 <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                                     View all
                                 </button>
                             </div>
 
-                            {/* Add Comment */}
                             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                                 <div className="flex space-x-3">
                                     <div className="w-8 h-8 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm flex-shrink-0">
@@ -362,8 +358,8 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                     </div>
                                     <div className="flex-1 space-y-3">
                                         <textarea
-                                            value={newComment}
-                                            onChange={(e) => setNewComment(e.target.value)}
+                                            value={comment}
+                                            onChange={(e) => setComment(e.target.value)}
                                             placeholder="Add a comment..."
                                             className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                                             rows="3"
@@ -374,7 +370,7 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                             </button>
                                             <button
                                                 onClick={handleAddComment}
-                                                disabled={!newComment.trim()}
+                                                disabled={!comment.trim()}
                                                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                                             >
                                                 <Send className="w-4 h-4 mr-2" />
@@ -385,9 +381,8 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                 </div>
                             </div>
 
-                            {/* Comments List */}
                             <div className="space-y-6">
-                                {mockComments.map((comment) => (
+                                {comments.map((comment) => (
                                     <div key={comment.id} className="flex space-x-3">
                                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm flex-shrink-0">
                                             {comment.avatar}
@@ -398,7 +393,7 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                                     {comment.author}
                                                 </span>
                                                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                    {comment.timestamp}
+                                                    {comment.createdAt}
                                                 </span>
                                             </div>
                                             <div className="bg-white dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
