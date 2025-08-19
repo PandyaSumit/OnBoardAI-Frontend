@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
-    Kanban, FileText, Calendar, BarChart3, Filter, Users, ChevronDown, Plus,
-    Search, Settings, Bell, Layout, List, Grid, Download, Upload, Star,
-    Zap, Clock, Target, Eye, Archive, RefreshCw,
+    Kanban, FileText, Calendar, BarChart3, Filter, ChevronDown, Plus,
+    Search, Zap, Target, RefreshCw,
     Bookmark,
     CheckCircle,
     Bug,
@@ -19,7 +18,6 @@ import {
     clearFilters,
     setSortBy,
     setGroupBy,
-    setViewMode,
     toggleSelectItem,
     clearSelection,
     selectAllVisible,
@@ -35,6 +33,7 @@ import Column from '../components/Column';
 import AIChatbot from '../components/AiChatBot';
 import TaskDrawer from '../components/TaskDrawer';
 import CreateTaskModal from '../components/modals/CreateTask';
+import BoardHeader from '../components/Layout/BoardHeader';
 
 const Dashboard = () => {
     const [activeTab, setActiveTab] = useState('board');
@@ -51,12 +50,10 @@ const Dashboard = () => {
 
     const dispatch = useDispatch();
     const {
-        tickets,
         filteredTickets,
         columns,
         loading,
         creating,
-        error,
         filters,
         sortBy,
         groupBy,
@@ -144,15 +141,8 @@ const Dashboard = () => {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', item._id);
 
-        // Visual feedback
         e.target.style.opacity = '0.5';
     };
-
-    // const handleDragEnd = (e) => {
-    //     e.target.style.opacity = '1';
-    //     draggedItemRef.current = null;
-    //     draggedOverColumnRef.current = null;
-    // };
 
     const handleDragOver = (e) => {
         e.preventDefault();
@@ -194,38 +184,11 @@ const Dashboard = () => {
         setIsRefreshing(false);
     };
 
-    const handleBulkAction = async (action) => {
-        if (selectedItems.length === 0) return;
-
-        switch (action) {
-            case 'delete':
-                // Implement bulk delete
-                break;
-            case 'assign':
-                // Implement bulk assign
-                break;
-            case 'move':
-                // Implement bulk move
-                break;
-            case 'archive':
-                // Implement bulk archive
-                break;
-        }
-
-        dispatch(clearSelection());
-    };
-
     const navigation = [
         { id: 'board', label: 'Board', icon: Kanban, shortcut: 'B' },
         { id: 'backlog', label: 'Backlog', icon: FileText, shortcut: 'L' },
         { id: 'timeline', label: 'Timeline', icon: Calendar, shortcut: 'T' },
         { id: 'reports', label: 'Reports', icon: BarChart3, shortcut: 'R' }
-    ];
-
-    const viewModes = [
-        { id: 'kanban', icon: Layout, label: 'Kanban' },
-        { id: 'list', icon: List, label: 'List' },
-        { id: 'grid', icon: Grid, label: 'Grid' }
     ];
 
     const sortOptions = [
@@ -287,96 +250,10 @@ const Dashboard = () => {
 
     const KanbanBoard = () => (
         <div className="flex-1 overflow-hidden">
-            {/* Board header with quick actions */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            Project Board
-                        </h2>
-
-                        {/* Quick stats */}
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <span>{tickets.length} total tickets</span>
-                            <span>{selectedItems.length} selected</span>
-                            {error && <span className="text-red-500">⚠ {error}</span>}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {/* View mode switcher */}
-                        <div className="flex rounded-lg border border-gray-200 dark:border-gray-600">
-                            {viewModes.map((mode) => {
-                                const Icon = mode.icon;
-                                return (
-                                    <button
-                                        key={mode.id}
-                                        onClick={() => dispatch(setViewMode(mode.id))}
-                                        className={`p-2 transition-colors ${viewMode === mode.id
-                                            ? 'bg-blue-500 text-white'
-                                            : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            }`}
-                                        title={mode.label}
-                                    >
-                                        <Icon className="w-4 h-4" />
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {/* Refresh button */}
-                        <button
-                            onClick={handleRefresh}
-                            disabled={isRefreshing}
-                            className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 
-                                     rounded transition-colors disabled:opacity-50"
-                        >
-                            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Bulk actions bar */}
-                {selectedItems.length > 0 && (
-                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                                {selectedItems.length} ticket{selectedItems.length !== 1 ? 's' : ''} selected
-                            </span>
-
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => handleBulkAction('assign')}
-                                    className="px-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 
-                                             dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600"
-                                >
-                                    Assign
-                                </button>
-                                <button
-                                    onClick={() => handleBulkAction('move')}
-                                    className="px-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 
-                                             dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600"
-                                >
-                                    Move
-                                </button>
-                                <button
-                                    onClick={() => handleBulkAction('archive')}
-                                    className="px-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 
-                                             dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600"
-                                >
-                                    Archive
-                                </button>
-                                <button
-                                    onClick={() => dispatch(clearSelection())}
-                                    className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                >
-                                    Clear
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+            <BoardHeader
+                setIsRefreshing={setIsRefreshing}
+                isRefreshing={isRefreshing}
+            />
 
             {/* Board content */}
             <div className="h-full overflow-x-auto">
@@ -396,7 +273,6 @@ const Dashboard = () => {
                         />
                     ))}
 
-                    {/* Add new column button */}
                     <div className="flex-shrink-0 w-80 p-4">
                         <button className="w-full border-2 border-dashed border-gray-300 
                                          dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 
@@ -618,8 +494,7 @@ const Dashboard = () => {
 
                     {/* Enhanced toolbar */}
                     <div className="flex items-center gap-2">
-                        {/* Search */}
-                        <div className="relative">
+                        {/* <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 id="search-input"
@@ -631,9 +506,8 @@ const Dashboard = () => {
                                          bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 
                                          focus:border-transparent w-64"
                             />
-                        </div>
+                        </div> */}
 
-                        {/* Advanced filters toggle */}
                         <button
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                             className={`
@@ -787,7 +661,6 @@ const Dashboard = () => {
 
             {renderContent()}
 
-            {/* Modals and overlays */}
             <CreateTaskModal
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
