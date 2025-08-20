@@ -3,7 +3,6 @@ import axios from 'axios';
 
 const API_URL = `${import.meta.env.VITE_BACKEND_URL}/tickets`;
 
-// Enhanced fetch with filtering and search
 export const fetchTickets = createAsyncThunk(
     'tickets/fetchTickets',
     async (params = {}, { rejectWithValue }) => {
@@ -18,7 +17,28 @@ export const fetchTickets = createAsyncThunk(
     }
 );
 
-// Fetch single ticket with full details
+export const fetchComments = createAsyncThunk(
+    "tickets/fetchComments",
+    async ({ ticketId, page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' }, { rejectWithValue }) => {
+        try {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString(),
+                sortBy,
+                sortOrder
+            }).toString();
+
+            const { data } = await axios.get(`${API_URL}/${ticketId}/comments?${queryParams}`, {
+                withCredentials: true
+            });
+
+            return data.data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data || err.message);
+        }
+    }
+);
+
 export const fetchTicketById = createAsyncThunk(
     'tickets/fetchTicketById',
     async (id, { rejectWithValue }) => {
@@ -31,7 +51,6 @@ export const fetchTicketById = createAsyncThunk(
     }
 );
 
-// Create ticket with optimistic updates
 export const createTicket = createAsyncThunk(
     'tickets/createTicket',
     async (ticketData, { rejectWithValue }) => {
@@ -56,7 +75,6 @@ export const createTicket = createAsyncThunk(
     }
 );
 
-// Bulk update tickets (for drag & drop operations)
 export const bulkUpdateTickets = createAsyncThunk(
     'tickets/bulkUpdateTickets',
     async (updates, { rejectWithValue }) => {
@@ -69,7 +87,6 @@ export const bulkUpdateTickets = createAsyncThunk(
     }
 );
 
-// Update ticket with optimistic updates
 export const updateTicket = createAsyncThunk(
     'tickets/updateTicket',
     async ({ id, updatedData }, { rejectWithValue }) => {
@@ -82,7 +99,6 @@ export const updateTicket = createAsyncThunk(
     }
 );
 
-// Soft delete ticket
 export const deleteTicket = createAsyncThunk(
     'tickets/deleteTicket',
     async (id, { rejectWithValue }) => {
@@ -94,19 +110,6 @@ export const deleteTicket = createAsyncThunk(
         }
     }
 );
-
-// Add comment to ticket
-// export const addComment = createAsyncThunk(
-//     'tickets/addComment',
-//     async ({ ticketId, comment }, { rejectWithValue }) => {
-//         try {
-//             const { data } = await axios.post(`${API_URL}/${ticketId}/comments`, comment, { withCredentials: true });
-//             return data.data;
-//         } catch (err) {
-//             return rejectWithValue(err.response?.data || err.message);
-//         }
-//     }
-// );
 
 export const addComment = createAsyncThunk(
     "tickets/addComment",
@@ -128,7 +131,6 @@ export const addComment = createAsyncThunk(
     }
 );
 
-// Update ticket watchers
 export const updateWatchers = createAsyncThunk(
     'tickets/updateWatchers',
     async ({ ticketId, userId, action }, { rejectWithValue }) => {
@@ -149,13 +151,21 @@ const initialState = {
     tickets: [],
     filteredTickets: [],
     comments: [],
+    commentsLoading: false,
+    commentsPagination: {
+        currentPage: 1,
+        totalPages: 0,
+        totalComments: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+        limit: 10
+    },
     selectedTicket: null,
     loading: false,
     creating: false,
     updating: false,
     error: null,
 
-    // Enhanced state management
     columns: {},
     filters: {
         search: '',
@@ -337,6 +347,28 @@ const ticketSlice = createSlice({
             })
             .addCase(fetchTicketById.rejected, (state, action) => {
                 state.loading = false;
+                state.error = action.payload;
+            })
+
+            .addCase(fetchComments.pending, (state) => {
+                state.commentsLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchComments.fulfilled, (state, action) => {
+                state.commentsLoading = false;
+                const { comments, pagination } = action.payload;
+
+                // If it's page 1, replace comments; otherwise append
+                if (pagination.currentPage === 1) {
+                    state.comments = comments;
+                } else {
+                    state.comments = [...state.comments, ...comments];
+                }
+
+                state.commentsPagination = pagination;
+            })
+            .addCase(fetchComments.rejected, (state, action) => {
+                state.commentsLoading = false;
                 state.error = action.payload;
             })
 

@@ -6,9 +6,10 @@ import {
     Plus, Send, Eye, UserPlus, Bell
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { addComment } from '../store/slices/ticketSlice';
+import { addComment, fetchComments, updateTicket } from '../store/slices/ticketSlice';
 
-const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
+const TaskDrawer = ({ task, onClose }) => {
+
     const [isEditing, setIsEditing] = useState(false);
     const [editedTask, setEditedTask] = useState(task || {});
     const [activeTab, setActiveTab] = useState('overview');
@@ -16,13 +17,14 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
 
     const dispatch = useDispatch();
     const { comments } = useSelector((state) => state.tickets);
-    console.log('comments: ', comments);
 
-    useEffect(() => {
-        if (task) {
-            setEditedTask(task);
-        }
-    }, [task]);
+    const ticketUpdate = useSelector(state =>
+        state.tickets.selectedTicket?._id === task?._id
+            ? state.tickets.selectedTicket
+            : state.tickets.tickets.find(t => t._id === task?._id)
+    );
+
+    console.log('ticketUpdate', ticketUpdate)
 
     const handleAddComment = () => {
         if (!comment.trim()) return;
@@ -38,8 +40,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
             .catch((err) => console.error("Failed to add comment:", err));
     };
 
-
-    if (!task) return null;
 
     const priorityConfig = {
         highest: {
@@ -89,22 +89,39 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
     };
 
     const handleSave = () => {
-        if (onUpdateTask) {
-            onUpdateTask(editedTask);
-        }
+        dispatch(updateTicket({
+            id: editedTask._id,
+            updatedData: editedTask
+        }));
         setIsEditing(false);
     };
 
-    const PriorityIcon = priorityConfig[task.priority]?.icon || Minus;
-    const priorityStyle = priorityConfig[task.priority] || priorityConfig.medium;
-    const typeStyle = typeConfig[task.type] || typeConfig.task;
-    const statusStyle = statusConfig[task.status] || statusConfig['to-do'];
+
+
+    const PriorityIcon = priorityConfig[task?.priority]?.icon || Minus;
+    const priorityStyle = priorityConfig[task?.priority] || priorityConfig.medium;
+    const typeStyle = typeConfig[task?.type] || typeConfig.task;
+    const statusStyle = statusConfig[task?.status] || statusConfig['to-do'];
 
     const tabs = [
         { id: 'overview', label: 'Overview' },
         { id: 'subtasks', label: 'Subtasks' },
         { id: 'activity', label: 'Activity' }
     ];
+
+    useEffect(() => {
+        if (activeTab === "activity" && task?._id) {
+            dispatch(fetchComments({ ticketId: task._id }));
+        }
+    }, [activeTab, task?._id, dispatch]);
+
+    useEffect(() => {
+        if (task) {
+            setEditedTask(task);
+        }
+    }, [task]);
+
+    if (!task) return null;
 
     return (
         <>
@@ -120,7 +137,7 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                     height: 'calc(100vh - 103px)'
                 }}
             >
-                <div className="flex items-center justify-between px-6 py-4 border-b space-y-0.5 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                         <div className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${typeStyle.color}`}>
                             <span className="mr-1.5">{typeConfig[task.type]?.icon}</span>
@@ -172,7 +189,7 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
 
                 <div className="flex-1 overflow-y-auto min-h-0">
                     {activeTab === 'overview' && (
-                        <div className="p-6 space-y-8">
+                        <div className="p-6 space-y-6 bg-white dark:bg-gray-900">
                             <div className="space-y-4">
                                 <div className="flex items-start justify-between">
                                     {isEditing ? (
@@ -180,19 +197,19 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                             type="text"
                                             value={editedTask.title}
                                             onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
-                                            className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none flex-1 pb-2 mr-4"
+                                            className="text-2xl font-semibold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none flex-1 pb-1 mr-4"
                                             autoFocus
                                         />
                                     ) : (
-                                        <h1 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-white leading-tight flex-1 mr-4">
-                                            {task.title}
+                                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex-1 mr-4">
+                                            {ticketUpdate?.title}
                                         </h1>
                                     )}
                                     <button
                                         onClick={() => setIsEditing(!isEditing)}
-                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors flex-shrink-0"
+                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
                                     >
-                                        <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                        <Edit2 className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                                     </button>
                                 </div>
 
@@ -200,126 +217,140 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                                     <div className="flex space-x-3">
                                         <button
                                             onClick={handleSave}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                                         >
-                                            Save changes
+                                            Save
                                         </button>
                                         <button
                                             onClick={() => setIsEditing(false)}
-                                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm"
+                                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                                         >
                                             Cancel
                                         </button>
                                     </div>
                                 )}
                             </div>
-
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                            <section className="space-y-3">
+                                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
                                     Description
                                 </h3>
                                 {isEditing ? (
                                     <textarea
                                         value={editedTask.description}
                                         onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
-                                        className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                        className="w-full p-4 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:ring-2 focus:ring-blue-500"
                                         rows="4"
                                         placeholder="Add a description..."
                                     />
                                 ) : (
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
-                                            {task.description || 'No description provided.'}
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                                        <p className="text-gray-700 dark:text-gray-300 text-sm">
+                                            {ticketUpdate?.description || 'No description provided.'}
                                         </p>
                                     </div>
                                 )}
-                            </div>
+                            </section>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                            <div className="space-y-4">
+                                <div className="flex items-center py-2">
+                                    <div className="w-24 text-sm text-gray-600 dark:text-gray-400 shrink-0">
                                         Status
-                                    </label>
-                                    <div className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium border ${statusStyle.color}`}>
-                                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                                        {statusStyle.label}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusStyle.color}`}>
+                                            <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                                            {statusStyle.label}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                                        Priority
-                                    </label>
-                                    <div className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium border ${priorityStyle.color}`}>
-                                        <PriorityIcon className="w-4 h-4 mr-2" />
-                                        {priorityStyle.label}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                                <div className="flex items-center py-2">
+                                    <div className="w-24 text-sm text-gray-600 dark:text-gray-400 shrink-0">
                                         Assignee
-                                    </label>
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm">
-                                            {task.assignee?.charAt(0) || 'U'}
+                                    </div>
+                                    <div className="flex-1 flex items-center space-x-2">
+                                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                            {task.assignee?.charAt(0)?.toUpperCase() || 'U'}
                                         </div>
-                                        <span className="text-gray-900 dark:text-white font-medium">{task.assignee || 'Unassigned'}</span>
+                                        <span className="text-sm text-gray-900 dark:text-white">
+                                            {task.assignee || 'Unassigned'}
+                                        </span>
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                                <div className="flex items-center py-2">
+                                    <div className="w-24 text-sm text-gray-600 dark:text-gray-400 shrink-0">
+                                        Due date
+                                    </div>
+                                    <div className="flex-1 flex items-center space-x-2">
+                                        <Calendar className="w-4 h-4 text-gray-400" />
+                                        <span className="text-sm text-gray-900 dark:text-white">
+                                            {task.dueDate || 'No due date'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center py-2">
+                                    <div className="w-24 text-sm text-gray-600 dark:text-gray-400 shrink-0">
+                                        Priority
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${priorityStyle.color}`}>
+                                            <PriorityIcon className="w-3 h-3 mr-1.5" />
+                                            {priorityStyle.label}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center py-2">
+                                    <div className="w-24 text-sm text-gray-600 dark:text-gray-400 shrink-0">
+                                        Points
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded text-xs font-medium text-gray-700 dark:text-gray-300">
+                                            {task.storyPoints || '—'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center py-2">
+                                    <div className="w-24 text-sm text-gray-600 dark:text-gray-400 shrink-0">
                                         Reporter
-                                    </label>
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-sm">
-                                            {task.reporter?.charAt(0) || 'R'}
+                                    </div>
+                                    <div className="flex-1 flex items-center space-x-2">
+                                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                                            {task.reporter?.charAt(0)?.toUpperCase() || 'R'}
                                         </div>
-                                        <span className="text-gray-900 dark:text-white font-medium">{task.reporter || 'Unknown'}</span>
+                                        <span className="text-sm text-gray-900 dark:text-white">
+                                            {task.reporter || 'Unknown'}
+                                        </span>
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                                        Due Date
-                                    </label>
-                                    <div className="flex items-center space-x-3">
-                                        <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                                        <span className="text-gray-900 dark:text-white">{task.dueDate || 'Not set'}</span>
+                                <div className="flex items-start py-2">
+                                    <div className="w-24 text-sm text-gray-600 dark:text-gray-400 shrink-0 mt-0.5">
+                                        Tags
                                     </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <label className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                                        Story Points
-                                    </label>
-                                    <div className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                        <span className="text-lg font-bold text-gray-900 dark:text-white">{task.storyPoints || '?'}</span>
+                                    <div className="flex-1">
+                                        {task.tags && task.tags.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {task.tags.map((tag, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                                    >
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-sm text-gray-500 dark:text-gray-500">No tags</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                                    Tags
-                                </h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {task.tags && task.tags.length > 0 ? (
-                                        task.tags.map((tag, index) => (
-                                            <span
-                                                key={index}
-                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
-                                            >
-                                                <Tag className="w-3 h-3 mr-1" />
-                                                {tag}
-                                            </span>
-                                        ))
-                                    ) : (
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">No tags assigned</span>
-                                    )}
-                                </div>
-                            </div>
+
                         </div>
                     )}
 

@@ -76,23 +76,21 @@ const Dashboard = () => {
     }, [columns, filteredTickets]);
 
     // Auto-refresh when data becomes stale
-    useEffect(() => {
-        if (isStale) {
-            const timer = setTimeout(() => {
-                dispatch(fetchTickets());
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [isStale, dispatch]);
-
-    // Debounced search
     // useEffect(() => {
-    //     const debounceTimer = setTimeout(() => {
-    //         dispatch(setFilters({ search: searchQuery }));
-    //     }, 300);
+    //     console.log("calling")
+    //     if (isStale) {
+    //         const timer = setTimeout(() => {
+    //             dispatch(fetchTickets());
+    //         }, 5000);
+    //         return () => clearTimeout(timer);
+    //     }
+    // }, [isStale, dispatch]);
 
-    //     return () => clearTimeout(debounceTimer);
-    // }, [searchQuery, dispatch]);
+    useEffect(() => {
+        if (!filteredTickets.length) {
+            dispatch(fetchTickets());
+        }
+    }, [dispatch, filteredTickets.length]);
 
     // Auto-save functionality
     const scheduleAutoSave = () => {
