@@ -251,6 +251,7 @@ const Dashboard = () => {
     const KanbanBoard = () => (
         <div className="flex-1 overflow-hidden">
             <BoardHeader
+                selectedTask={selectedTask}
                 setIsRefreshing={setIsRefreshing}
                 isRefreshing={isRefreshing}
             />

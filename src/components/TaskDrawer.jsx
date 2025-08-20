@@ -106,23 +106,6 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
         { id: 'activity', label: 'Activity' }
     ];
 
-    const mockComments = [
-        {
-            id: 1,
-            author: task.assignee,
-            content: "I've started working on this task. The initial setup is complete and I'm moving forward with the implementation.",
-            timestamp: '2 hours ago',
-            avatar: task.assignee?.charAt(0) || 'U'
-        },
-        {
-            id: 2,
-            author: task.reporter,
-            content: "Great progress! Let me know if you need any clarification on the requirements.",
-            timestamp: '1 hour ago',
-            avatar: task.reporter?.charAt(0) || 'R'
-        }
-    ];
-
     return (
         <>
             <div
@@ -137,7 +120,7 @@ const TaskDrawer = ({ task, onClose, onUpdateTask }) => {
                     height: 'calc(100vh - 103px)'
                 }}
             >
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b space-y-0.5 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                         <div className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${typeStyle.color}`}>
                             <span className="mr-1.5">{typeConfig[task.type]?.icon}</span>

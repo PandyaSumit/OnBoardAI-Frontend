@@ -3,7 +3,7 @@ import { clearSelection, fetchTickets, setViewMode } from '../../store/slices/ti
 import { useDispatch, useSelector } from 'react-redux';
 import { Grid, Layout, List, RefreshCw } from 'lucide-react';
 
-const BoardHeader = ({ setIsRefreshing, isRefreshing }) => {
+const BoardHeader = ({ setIsRefreshing, isRefreshing, selectedTask }) => {
 
     const dispatch = useDispatch();
     const {
@@ -49,7 +49,12 @@ const BoardHeader = ({ setIsRefreshing, isRefreshing }) => {
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4"
+            style={{
+                width: selectedTask
+                    ? "calc(100% - 41%)"
+                    : "100%",
+            }}>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
