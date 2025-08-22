@@ -1,5 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Plus, MoreHorizontal, Filter, Users, BarChart3, Eye, EyeOff, Settings } from 'lucide-react';
+import {
+    Plus, MoreHorizontal, Filter, Users, Eye, Settings,
+    ChevronDown, ChevronRight, TrendingUp, AlertCircle, Check, X
+} from 'lucide-react';
 import Card from './Card';
 
 const Column = ({
@@ -9,34 +12,37 @@ const Column = ({
     onDragStart,
     onCardClick,
     onCreateIssue,
+    onUpdateColumn, // New prop for updating column name
     selectedItems = [],
     onSelectItem,
     isDragTarget = false,
-    showColumnActions = true
+    showColumnActions = true,
+    dragOverItem = null
 }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editingName, setEditingName] = useState(column.name);
     const [localFilters, setLocalFilters] = useState({
         assignee: '',
         priority: '',
         type: ''
     });
     const [isDragOver, setIsDragOver] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
     const dropRef = useRef(null);
+    const nameInputRef = useRef(null);
 
     const stats = {
         total: column.items.length,
-        byPriority: column.items.reduce((acc, item) => {
-            acc[item.priority] = (acc[item.priority] || 0) + 1;
-            return acc;
-        }, {}),
-        byType: column.items.reduce((acc, item) => {
-            acc[item.type] = (acc[item.type] || 0) + 1;
-            return acc;
-        }, {}),
         storyPoints: column.items.reduce((sum, item) => sum + (item.storyPoints || 0), 0),
         overdue: column.items.filter(item => {
             if (!item.dueDate) return false;
             return new Date(item.dueDate) < new Date();
+        }).length,
+        completedToday: column.items.filter(item => {
+            if (item.status !== 'done') return false;
+            const today = new Date().toDateString();
+            return item.completedAt && new Date(item.completedAt).toDateString() === today;
         }).length
     };
 
@@ -65,21 +71,37 @@ const Column = ({
         onDrop(e, column.id);
     };
 
-    const getColumnColor = (status) => {
-        const colors = {
-            'to-do': 'bg-gray-50 dark:bg-gray-800',
-            'in-progress': 'bg-blue-50 dark:bg-blue-900/20',
-            'code-review': 'bg-yellow-50 dark:bg-yellow-900/20',
-            'testing': 'bg-orange-50 dark:bg-orange-900/20',
-            'done': 'bg-green-50 dark:bg-green-900/20',
-            'blocked': 'bg-red-50 dark:bg-red-900/20'
-        };
-        return colors[status] || 'bg-gray-50 dark:bg-gray-800';
+    const handleNameEdit = () => {
+        setIsEditingName(true);
+        setEditingName(column.name);
+        setTimeout(() => nameInputRef.current?.focus(), 0);
+    };
+
+    const handleNameSave = () => {
+        if (editingName.trim() && editingName !== column.name) {
+            onUpdateColumn && onUpdateColumn(column.id, { name: editingName.trim() });
+        }
+        setIsEditingName(false);
+        setEditingName(column.name);
+    };
+
+    const handleNameCancel = () => {
+        setIsEditingName(false);
+        setEditingName(column.name);
+    };
+
+    const handleNameKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleNameSave();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            handleNameCancel();
+        }
     };
 
     const getWipLimitStatus = () => {
         if (!column.wipLimit) return null;
-
         const percentage = (stats.total / column.wipLimit) * 100;
         if (percentage >= 100) return 'exceeded';
         if (percentage >= 80) return 'warning';
@@ -87,111 +109,131 @@ const Column = ({
     };
 
     const wipStatus = getWipLimitStatus();
+    const uniqueAssignees = [...new Set(column.items.map(item => item.assignee).filter(Boolean))];
+    const uniquePriorities = [...new Set(column.items.map(item => item.priority))];
+    const uniqueTypes = [...new Set(column.items.map(item => item.type))];
 
     return (
         <div
             ref={dropRef}
             className={`
-                flex-shrink-0 w-80 rounded-lg flex flex-col transition-all duration-200
-                ${getColumnColor(column.id)}
-                ${isDragOver ? 'ring-2 ring-blue-500 ring-opacity-50 scale-105' : ''}
-                ${isDragTarget ? 'ring-2 ring-blue-300' : ''}
-                ${isCollapsed ? 'w-16' : 'w-80'}
+                flex-shrink-0 rounded-lg flex flex-col transition-all duration-200
+                bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                ${isDragOver ? 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-900/20' : ''}
+                ${isDragTarget ? 'ring-1 ring-blue-300' : ''}
+                ${isCollapsed ? 'w-16' : 'w-80'} 
+                min-h-96
             `}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            {/* Column Header */}
-            <div className="p-4 pb-2">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setIsCollapsed(!isCollapsed)}
-                            className="text-xs font-semibold text-gray-600 dark:text-gray-300 
-                                     uppercase tracking-wide hover:text-gray-800 dark:hover:text-gray-100
-                                     transition-colors"
-                        >
-                            {isCollapsed ? column.name.slice(0, 2) : column.name}
-                        </button>
+            {/* Column Header - Separated section */}
+            <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                <div className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 flex-1">
+                            {/* Editable Column Name */}
+                            {isEditingName && !isCollapsed ? (
+                                <div className="flex items-center gap-2 flex-1">
+                                    <input
+                                        ref={nameInputRef}
+                                        type="text"
+                                        value={editingName}
+                                        onChange={(e) => setEditingName(e.target.value)}
+                                        onKeyDown={handleNameKeyDown}
+                                        onBlur={handleNameSave}
+                                        className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide bg-white dark:bg-gray-700 border border-blue-300 dark:border-blue-600 rounded px-2 py-1 flex-1 min-w-0"
+                                        maxLength={50}
+                                    />
+                                    <button
+                                        onClick={handleNameSave}
+                                        className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors"
+                                    >
+                                        <Check className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                        onClick={handleNameCancel}
+                                        className="p-1 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleNameEdit}
+                                    className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide hover:text-gray-900 dark:hover:text-gray-100 transition-colors text-left"
+                                    disabled={isCollapsed}
+                                >
+                                    {isCollapsed ? column.name.slice(0, 2) : column.name}
+                                </button>
+                            )}
 
-                        {/* WIP Limit indicator */}
-                        {column.wipLimit && !isCollapsed && (
-                            <div className={`
-                                text-xs px-2 py-0.5 rounded-full font-medium
-                                ${wipStatus === 'exceeded' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                    wipStatus === 'warning' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}
-                            `}>
-                                {stats.total}/{column.wipLimit}
+                            {/* Item count */}
+                            <div className="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                                {stats.total}
+                            </div>
+
+                            {/* WIP Limit Badge */}
+                            {column.wipLimit && !isCollapsed && wipStatus && (
+                                <div className={`
+                                    text-xs px-2 py-0.5 rounded-full font-medium
+                                    ${wipStatus === 'exceeded'
+                                        ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                        : wipStatus === 'warning'
+                                            ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                                            : 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400'}
+                                `}>
+                                    {stats.total}/{column.wipLimit}
+                                </div>
+                            )}
+                        </div>
+
+                        {!isCollapsed && showColumnActions && !isEditingName && (
+                            <div className="flex items-center gap-1 ml-2">
+                                <button
+                                    onClick={() => onCreateIssue(column.id)}
+                                    className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                    title="Add task"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                    className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                    title="More options"
+                                >
+                                    <MoreHorizontal className="w-4 h-4" />
+                                </button>
                             </div>
                         )}
                     </div>
 
-                    {!isCollapsed && showColumnActions && (
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => onCreateIssue(column.id)}
-                                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400"
-                            >
-                                <Plus className="w-4 h-4" />
-                            </button>
-
-                            <button className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400">
-                                <MoreHorizontal className="w-4 h-4" />
-                            </button>
+                    {/* Simple Stats for non-collapsed */}
+                    {!isCollapsed && (stats.overdue > 0 || stats.completedToday > 0) && (
+                        <div className="flex items-center gap-3 text-xs">
+                            {stats.completedToday > 0 && (
+                                <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                    <TrendingUp className="w-3 h-3" />
+                                    <span>{stats.completedToday} completed today</span>
+                                </div>
+                            )}
+                            {stats.overdue > 0 && (
+                                <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>{stats.overdue} overdue</span>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
-
-                {!isCollapsed && (
-                    <>
-                        {/* Column stats */}
-                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-2">
-                            <span>{stats.total} issue{stats.total !== 1 ? 's' : ''}</span>
-                            {stats.storyPoints > 0 && (
-                                <span>{stats.storyPoints} pts</span>
-                            )}
-                            {stats.overdue > 0 && (
-                                <span className="text-red-500 font-medium">{stats.overdue} overdue</span>
-                            )}
-                        </div>
-
-                        {/* Quick stats bar */}
-                        <div className="flex gap-1 mb-3">
-                            {Object.entries(stats.byPriority).map(([priority, count]) => {
-                                const colors = {
-                                    highest: 'bg-red-500',
-                                    high: 'bg-orange-500',
-                                    medium: 'bg-yellow-500',
-                                    low: 'bg-green-500',
-                                    lowest: 'bg-blue-500'
-                                };
-                                return (
-                                    <div
-                                        key={priority}
-                                        className={`h-1 rounded ${colors[priority]}`}
-                                        style={{ flex: count }}
-                                        title={`${priority}: ${count}`}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </>
-                )}
             </div>
 
+            {/* Content Area - Separated section */}
             {!isCollapsed && (
-                <div
-                    className={`
-                                px-4 pb-4 space-y-3
-                                ${filteredItems.length > 0
-                            ? "flex-1 overflow-y-auto max-h-[calc(100vh-280px)]"
-                            : ""} 
-                                `}
-                >
-                    {filteredItems.length > 0 && (
-                        filteredItems.map((item) => (
+                <div className="flex-1 p-4 min-h-0 bg-white dark:bg-gray-800">
+                    <div className="space-y-3 max-h-full overflow-y-auto custom-scrollbar">
+                        {filteredItems.map((item) => (
                             <Card
                                 key={item._id}
                                 item={item}
@@ -200,58 +242,59 @@ const Column = ({
                                 isSelected={selectedItems.includes(item._id)}
                                 onSelect={onSelectItem}
                                 showDetails={true}
+                                isDragging={dragOverItem === item._id}
                             />
-                        ))
-                    )}
+                        ))}
 
-                    <button
-                        onClick={() => onCreateIssue(column.id)}
-                        className="w-full flex items-center justify-center gap-2 p-3 
-                                    border-2 border-dashed border-gray-300 dark:border-gray-600 
-                                    rounded-lg text-gray-500 dark:text-gray-400 
-                                    hover:border-blue-300 dark:hover:border-blue-400 
-                                    hover:text-blue-600 dark:hover:text-blue-400 
-                                    hover:bg-blue-50 dark:hover:bg-blue-900/20 
-                                    transition-all duration-200 text-sm font-medium group"
-                    >
-                        <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                        <span>Add</span>
-                    </button>
-
-                </div>
-            )}
-
-
-            {/* Collapsed state */}
-            {isCollapsed && (
-                <div className="flex-1 p-2">
-                    <div className="text-center">
-                        <div className="text-lg font-bold text-gray-600 dark:text-gray-300 mb-1">
-                            {stats.total}
-                        </div>
-                        <div className="space-y-1">
-                            {filteredItems.slice(0, 3).map((item) => (
-                                <div
-                                    key={item._id}
-                                    className="w-8 h-8 bg-white dark:bg-gray-600 rounded border 
-                                             border-gray-200 dark:border-gray-500 cursor-pointer
-                                             hover:scale-110 transition-transform"
-                                    onClick={() => onCardClick(item)}
-                                    title={item.title}
-                                />
-                            ))}
-                            {stats.total > 3 && (
-                                <div className="text-xs text-gray-400">+{stats.total - 3}</div>
-                            )}
-                        </div>
+                        {/* Add Item Button */}
+                        <button
+                            onClick={() => onCreateIssue(column.id)}
+                            className="w-full flex items-center justify-center gap-2 p-3 border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors text-sm"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Add task</span>
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* Drop indicator */}
-            {isDragOver && (
-                <div className="absolute inset-0 border-2 border-blue-500 border-dashed rounded-lg 
-                              bg-blue-50 dark:bg-blue-900/20 pointer-events-none" />
+            {/* Collapsed State */}
+            {isCollapsed && (
+                <div className="flex-1 p-3 flex flex-col items-center bg-white dark:bg-gray-800">
+                    <button
+                        onClick={() => setIsCollapsed(false)}
+                        className="text-center mb-4 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-2 transition-colors w-full"
+                    >
+                        <div className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-1">
+                            {stats.total}
+                        </div>
+                        <div className="w-6 h-0.5 bg-gray-400 rounded-full mx-auto" />
+                    </button>
+
+                    <div className="space-y-1 flex-1 w-full">
+                        {filteredItems.slice(0, 6).map((item, index) => (
+                            <div
+                                key={item._id}
+                                className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-sm cursor-pointer hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+                                onClick={() => onCardClick(item)}
+                                title={item.title}
+                            />
+                        ))}
+
+                        {stats.total > 6 && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 text-center pt-1">
+                                +{stats.total - 6}
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => onCreateIssue(column.id)}
+                        className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center mt-3 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
+                </div>
             )}
         </div>
     );

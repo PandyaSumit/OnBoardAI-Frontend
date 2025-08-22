@@ -102,6 +102,7 @@ export const updateTicket = createAsyncThunk(
 export const deleteTicket = createAsyncThunk(
     'tickets/deleteTicket',
     async (id, { rejectWithValue }) => {
+        console.log(id);
         try {
             await axios.delete(`${API_URL}/${id}`, { withCredentials: true });
             return id;
