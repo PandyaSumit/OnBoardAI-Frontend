@@ -1,5 +1,5 @@
 import React from 'react'
-import { clearSelection, fetchTickets, setViewMode } from '../../store/slices/ticketSlice';
+import { fetchTickets, setViewMode } from '../../store/slices/ticketSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { Grid, Layout, List, RefreshCw } from 'lucide-react';
 
@@ -19,28 +19,6 @@ const BoardHeader = ({ setIsRefreshing, isRefreshing, selectedTask }) => {
         { id: 'grid', icon: Grid, label: 'Grid' }
     ];
 
-
-    const handleBulkAction = async (action) => {
-        if (selectedItems.length === 0) return;
-
-        switch (action) {
-            case 'delete':
-                // Implement bulk delete
-                break;
-            case 'assign':
-                // Implement bulk assign
-                break;
-            case 'move':
-                // Implement bulk move
-                break;
-            case 'archive':
-                // Implement bulk archive
-                break;
-        }
-
-        dispatch(clearSelection());
-    };
-    console.log('isRefreshing', isRefreshing)
     const handleRefresh = async () => {
         console.log("first")
         setIsRefreshing(true);
@@ -98,46 +76,6 @@ const BoardHeader = ({ setIsRefreshing, isRefreshing, selectedTask }) => {
                     </button>
                 </div>
             </div>
-
-            {selectedItems.length > 0 && (
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                            {selectedItems.length} ticket{selectedItems.length !== 1 ? 's' : ''} selected
-                        </span>
-
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => handleBulkAction('assign')}
-                                className="px-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 
-                                             dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600"
-                            >
-                                Assign
-                            </button>
-                            <button
-                                onClick={() => handleBulkAction('move')}
-                                className="px-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 
-                                             dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600"
-                            >
-                                Move
-                            </button>
-                            <button
-                                onClick={() => handleBulkAction('archive')}
-                                className="px-3 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 
-                                             dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600"
-                            >
-                                Archive
-                            </button>
-                            <button
-                                onClick={() => dispatch(clearSelection())}
-                                className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                            >
-                                Clear
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }

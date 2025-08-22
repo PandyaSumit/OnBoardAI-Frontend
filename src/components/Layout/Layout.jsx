@@ -50,7 +50,7 @@ const Layout = () => {
                 />
 
                 <main
-                    className={`flex-1 overflow-auto bg-white dark:bg-gray-900 transition-all duration-300 ease-in-out
+                    className={`flex-1 overflow-auto bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:bg-gray-900 transition-all duration-300 ease-in-out
         ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}
                 >
                     <div className="w-full">

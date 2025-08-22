@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-    Plus, MoreHorizontal, Filter, Users, Eye, Settings,
-    ChevronDown, ChevronRight, TrendingUp, AlertCircle, Check, X
+    Plus, MoreHorizontal, TrendingUp, AlertCircle, Check, X
 } from 'lucide-react';
 import Card from './Card';
 
@@ -12,7 +11,7 @@ const Column = ({
     onDragStart,
     onCardClick,
     onCreateIssue,
-    onUpdateColumn, // New prop for updating column name
+    onUpdateColumn,
     selectedItems = [],
     onSelectItem,
     isDragTarget = false,
@@ -28,7 +27,6 @@ const Column = ({
         type: ''
     });
     const [isDragOver, setIsDragOver] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
     const dropRef = useRef(null);
     const nameInputRef = useRef(null);
 
@@ -41,7 +39,7 @@ const Column = ({
         }).length,
         completedToday: column.items.filter(item => {
             if (item.status !== 'done') return false;
-            const today = new Date().toDateString();
+            const today = new Date().toDateString(); 
             return item.completedAt && new Date(item.completedAt).toDateString() === today;
         }).length
     };
@@ -109,9 +107,6 @@ const Column = ({
     };
 
     const wipStatus = getWipLimitStatus();
-    const uniqueAssignees = [...new Set(column.items.map(item => item.assignee).filter(Boolean))];
-    const uniquePriorities = [...new Set(column.items.map(item => item.priority))];
-    const uniqueTypes = [...new Set(column.items.map(item => item.type))];
 
     return (
         <div
@@ -128,12 +123,10 @@ const Column = ({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            {/* Column Header - Separated section */}
             <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                 <div className="p-4">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2 flex-1">
-                            {/* Editable Column Name */}
                             {isEditingName && !isCollapsed ? (
                                 <div className="flex items-center gap-2 flex-1">
                                     <input
@@ -169,12 +162,10 @@ const Column = ({
                                 </button>
                             )}
 
-                            {/* Item count */}
                             <div className="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full font-medium">
                                 {stats.total}
                             </div>
 
-                            {/* WIP Limit Badge */}
                             {column.wipLimit && !isCollapsed && wipStatus && (
                                 <div className={`
                                     text-xs px-2 py-0.5 rounded-full font-medium
@@ -209,7 +200,6 @@ const Column = ({
                         )}
                     </div>
 
-                    {/* Simple Stats for non-collapsed */}
                     {!isCollapsed && (stats.overdue > 0 || stats.completedToday > 0) && (
                         <div className="flex items-center gap-3 text-xs">
                             {stats.completedToday > 0 && (
@@ -229,7 +219,6 @@ const Column = ({
                 </div>
             </div>
 
-            {/* Content Area - Separated section */}
             {!isCollapsed && (
                 <div className="flex-1 p-4 min-h-0 bg-white dark:bg-gray-800">
                     <div className="space-y-3 max-h-full overflow-y-auto custom-scrollbar">
@@ -246,7 +235,6 @@ const Column = ({
                             />
                         ))}
 
-                        {/* Add Item Button */}
                         <button
                             onClick={() => onCreateIssue(column.id)}
                             className="w-full flex items-center justify-center gap-2 p-3 border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors text-sm"
@@ -258,7 +246,6 @@ const Column = ({
                 </div>
             )}
 
-            {/* Collapsed State */}
             {isCollapsed && (
                 <div className="flex-1 p-3 flex flex-col items-center bg-white dark:bg-gray-800">
                     <button
@@ -272,7 +259,7 @@ const Column = ({
                     </button>
 
                     <div className="space-y-1 flex-1 w-full">
-                        {filteredItems.slice(0, 6).map((item, index) => (
+                        {filteredItems.slice(0, 6).map((item) => (
                             <div
                                 key={item._id}
                                 className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-sm cursor-pointer hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"

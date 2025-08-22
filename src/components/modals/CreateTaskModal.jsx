@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import { Bookmark, CheckCircle, Bug, Zap, X, Flag, User, Tag } from 'lucide-react';
 
-// Mock components that would normally be imported
-// const BacklogView = () => <div className="p-6">Backlog View - Coming Soon</div>;
-// const TimelineView = () => <div className="p-6">Timeline View - Coming Soon</div>;
-// const ReportsView = () => <div className="p-6">Reports View - Coming Soon</div>;
-// const AIChatbot = () => null;
-// const TaskDrawer = ({ task, onClose }) => null;
-
-// Create Issue Modal Component
 const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-do' }) => {
     const [formData, setFormData] = useState({
         title: '',
@@ -206,20 +198,6 @@ const CreateTaskModal = ({ isOpen, onClose, onCreateIssue, defaultColumn = 'to-d
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
                             />
                         </div>
-
-                        {/* Story Points */}
-                        {/* <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Story Points</label>
-                            <input
-                                type="number"
-                                value={formData.storyPoints}
-                                onChange={(e) => handleInputChange('storyPoints', e.target.value)}
-                                placeholder="e.g., 1, 2, 3, 5, 8"
-                                min="1"
-                                max="100"
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
-                            />
-                        </div> */}
                     </div>
 
                     {/* Tags */}
