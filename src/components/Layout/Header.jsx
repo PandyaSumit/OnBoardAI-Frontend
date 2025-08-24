@@ -15,7 +15,7 @@ import {
 import useDarkMode from '../../utils/useDarkMode';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchCurrentUser, logout } from '../../store/slices/authSlice';
+import { getCurrentUser, logout } from '../../store/slices/authSlice';
 
 const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
     const [theme, toggleTheme] = useDarkMode();
@@ -29,8 +29,6 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { user } = useSelector((state) => state.auth)
-    console.log('user: ', user);
-
 
     useEffect(() => {
         const handler = (e) => {
@@ -93,7 +91,7 @@ const Header = ({ toggleSidebar, toggleMobileSidebar, sidebarOpen }) => {
     ];
 
     useEffect(() => {
-        dispatch(fetchCurrentUser());
+        dispatch(getCurrentUser());
     }, [dispatch]);
 
     return (

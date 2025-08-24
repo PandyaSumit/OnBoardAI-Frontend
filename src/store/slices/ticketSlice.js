@@ -54,6 +54,7 @@ export const fetchTicketById = createAsyncThunk(
 export const createTicket = createAsyncThunk(
     'tickets/createTicket',
     async (ticketData, { rejectWithValue }) => {
+        console.log('ticketData: ', ticketData);
         const tempId = `temp-${Date.now()}`;
         const optimisticTicket = {
             ...ticketData,
@@ -602,10 +603,10 @@ const applyFilters = (tickets, filters, sortBy) => {
     filtered.sort((a, b) => {
         const { field, direction } = sortBy;
         let comparison = 0;
+        const priorityOrder = { lowest: 1, low: 2, medium: 3, high: 4, highest: 5 };
 
         switch (field) {
             case 'priority':
-                const priorityOrder = { lowest: 1, low: 2, medium: 3, high: 4, highest: 5 };
                 comparison = (priorityOrder[a.priority] || 0) - (priorityOrder[b.priority] || 0);
                 break;
             case 'createdAt':
