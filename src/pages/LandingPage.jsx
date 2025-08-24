@@ -6,7 +6,6 @@ import Registration from './auth/Registration';
 import Login from './auth/login';
 
 const LandingPage = () => {
-    // const [showPassword, setShowPassword] = useState(false);
     const [emailStep, setEmailStep] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [register, setRegister] = useState(false);

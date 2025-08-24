@@ -18,10 +18,10 @@ function App() {
                     </Route>
 
                     {/* Private Routes */}
-                    <Route element={<PrivateRoute />}>
-                        <Route path="dashboard" element={<Dashboard />} />
-                        <Route path="workflows" element={<AIAgentViewPanel />} />
-                    </Route>
+                    {/* <Route element={<PrivateRoute />}> */}
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="workflows" element={<AIAgentViewPanel />} />
+                    {/* </Route> */}
                 </Route>
             </Routes>
         </BrowserRouter>
