@@ -1,8 +1,42 @@
-import { ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { useFormik } from 'formik';
+import { AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import React, { useState } from 'react'
+import { useDispatch } from 'react-redux';
+import { login } from '../../store/slices/authSlice';
+import { loginValidationSchema } from '../../schemas/authSchema';
+import { useNavigate } from 'react-router-dom';
 
-const Login = ({ handleGoogleAuth, formik, setRegister, emailStep, setEmailStep }) => {
+const Login = ({ handleGoogleAuth, setRegister, emailStep, setEmailStep }) => {
     const [showPassword, setShowPassword] = useState(false)
+    const dispatch = useDispatch()
+    const navigate = useNavigate()
+
+    const formik = useFormik({
+        initialValues: {
+            email: '',
+            password: '',
+            rememberMe: false,
+        },
+        validationSchema: loginValidationSchema,
+        onSubmit: async (values, { setSubmitting }) => {
+            try {
+                if (emailStep) {
+                    dispatch(login(values));
+                } else {
+                    console.log('Continue with email:', values.email);
+                    setEmailStep(true);
+                }
+                navigate('/dashboard');
+            } catch (error) {
+                console.error('Auth error:', error);
+            }
+            setSubmitting(false);
+        }
+    });
+
+    const handleMoveNextStep = () => {
+        setEmailStep(true);
+    }
 
     return (
         <>
@@ -45,16 +79,27 @@ const Login = ({ handleGoogleAuth, formik, setRegister, emailStep, setEmailStep 
 
                         {/* Email Input */}
                         <div className="space-y-3">
-                            <input
-                                type="email"
-                                placeholder="Enter your work email"
-                                {...formik.getFieldProps('email')}
-                                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm"
-                            />
+                            <div>
+                                <input
+                                    type="email"
+                                    placeholder="Enter your work email"
+                                    {...formik.getFieldProps('email')}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.email && formik.errors.email
+                                        ? 'border-red-300 bg-red-50'
+                                        : 'border-gray-200'
+                                        }`}
+                                />
+                                {formik.touched.email && formik.errors.email && (
+                                    <div className="mt-2 flex items-center text-sm text-red-600">
+                                        <AlertCircle className="w-4 h-4 mr-1" />
+                                        {formik.errors.email}
+                                    </div>
+                                )}
+                            </div>
 
                             <button
                                 type="button"
-                                onClick={formik.handleSubmit}
+                                onClick={() => handleMoveNextStep()}
                                 disabled={!formik.values.email}
                                 className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center"
                             >
@@ -99,7 +144,10 @@ const Login = ({ handleGoogleAuth, formik, setRegister, emailStep, setEmailStep 
                                 type={showPassword ? "text" : "password"}
                                 placeholder="Password"
                                 {...formik.getFieldProps("password")}
-                                className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 text-sm"
+                                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.password && formik.errors.password
+                                    ? 'border-red-300 bg-red-50'
+                                    : 'border-gray-200'
+                                    }`}
                             />
                             <button
                                 type="button"
@@ -108,6 +156,12 @@ const Login = ({ handleGoogleAuth, formik, setRegister, emailStep, setEmailStep 
                             >
                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
+                            {formik.touched.password && formik.errors.password && (
+                                <div className="mt-2 flex items-center text-sm text-red-600">
+                                    <AlertCircle className="w-4 h-4 mr-1" />
+                                    {formik.errors.password}
+                                </div>
+                            )}
                         </div>
 
                         {/* Continue Button */}
@@ -131,7 +185,7 @@ const Login = ({ handleGoogleAuth, formik, setRegister, emailStep, setEmailStep 
                             </button>
                         </div>
                     </div>
-                </div>
+                </div >
             )}
         </>
     )

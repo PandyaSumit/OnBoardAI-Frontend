@@ -1,6 +1,10 @@
 import { useFormik } from 'formik'
 import { ArrowRight, Users, User, Building2, ChevronDown } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { userRegistrationSchema, organizationRegistrationSchema } from '../../schemas/authSchema'
+import { registerUser, registerOrganization, clearError } from '../../store/slices/authSlice'
+import { useNavigate } from 'react-router-dom'
 
 const roleOptions = [
     {
@@ -23,6 +27,31 @@ const industries = [
     'Retail', 'Consulting', 'Media', 'Non-profit', 'Other'
 ]
 
+const userInitialValues = {
+    role: 'user',
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    joinCode: ''
+}
+
+const organizationInitialValues = {
+    role: 'organization',
+    adminFirstName: '',
+    adminLastName: '',
+    adminEmail: '',
+    adminPassword: '',
+    confirmAdminPassword: '',
+    organizationName: '',
+    organizationEmail: '',
+    description: '',
+    industry: '',
+    organizationSize: '',
+    website: ''
+}
+
 const placeholderText = "Please select your role to get started..."
 
 const Registration = ({ handleGoogleAuth, setRegister }) => {
@@ -30,41 +59,53 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
     const [typingText, setTypingText] = useState('')
     const [isTypingComplete, setIsTypingComplete] = useState(false)
 
+    const dispatch = useDispatch()
+    const navigate = useNavigate()
+    const { isLoading, error } = useSelector(state => state.auth)
+
     const formik = useFormik({
-        initialValues: {
-            role: '',
-            firstName: '',
-            lastName: '',
-            email: '',
-            joinCode: ''
-        },
-        validate: (values) => {
-            const errors = {}
-            if (!values.role) {
-                errors.role = 'Required'
+        initialValues: selectedRole === 'user' ? userInitialValues : organizationInitialValues,
+        validationSchema: selectedRole === 'user' ? userRegistrationSchema : organizationRegistrationSchema,
+        enableReinitialize: true,
+        validateOnBlur: true,
+        validateOnChange: false,
+        onSubmit: async (values) => {
+            try {
+                if (selectedRole === 'user') {
+                    const userData = {
+                        email: values.email,
+                        password: values.password,
+                        firstName: values.firstName,
+                        lastName: values.lastName,
+                        joinCode: values.joinCode || undefined
+                    }
+                    await dispatch(registerUser(userData)).unwrap()
+                } else {
+                    const orgData = {
+                        organizationName: values.organizationName,
+                        organizationEmail: values.organizationEmail,
+                        adminEmail: values.adminEmail,
+                        adminPassword: values.adminPassword,
+                        adminFirstName: values.adminFirstName,
+                        adminLastName: values.adminLastName,
+                        description: values.description,
+                        industry: values.industry,
+                        organizationSize: values.organizationSize,
+                        website: values.website
+                    }
+                    await dispatch(registerOrganization(orgData)).unwrap()
+                }
+                navigate('/dashboard')
+            } catch (error) {
+                console.error('Registration error:', error)
             }
-            if (!values.firstName) {
-                errors.firstName = 'Required'
-            }
-            if (!values.lastName) {
-                errors.lastName = 'Required'
-            }
-            if (!values.email) {
-                errors.email = 'Required'
-            }
-            return errors
-        },
-        onSubmit: (values) => {
-            console.log(values)
         }
     })
 
-
-
-
     const handleRoleSelect = (role) => {
         setSelectedRole(role)
-        // formik.setFieldValue('role', role)
+        formik.resetForm()
+        dispatch(clearError())
     }
 
     useEffect(() => {
@@ -87,29 +128,84 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
         }
     }, [selectedRole])
 
+    // Clear errors when component unmounts
+    useEffect(() => {
+        return () => {
+            dispatch(clearError())
+        }
+    }, [dispatch])
+
     const renderUserFields = () => (
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-                <input
-                    type="text"
-                    placeholder="First name"
-                    {...formik.getFieldProps('firstName')}
-                    className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm"
-                />
-                <input
-                    type="text"
-                    placeholder="Last name"
-                    {...formik.getFieldProps('lastName')}
-                    className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm"
-                />
+                <div>
+                    <input
+                        type="text"
+                        placeholder="First name *"
+                        {...formik.getFieldProps('firstName')}
+                        className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm w-full ${formik.touched.firstName && formik.errors.firstName
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200'
+                            }`}
+                    />
+                    {formik.touched.firstName && formik.errors.firstName && (
+                        <p className="mt-1 text-xs text-red-600">{formik.errors.firstName}</p>
+                    )}
+                </div>
+                <div>
+                    <input
+                        type="text"
+                        placeholder="Last name"
+                        {...formik.getFieldProps('lastName')}
+                        className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm w-full"
+                    />
+                </div>
             </div>
 
-            <input
-                type="email"
-                placeholder="Work email address"
-                {...formik.getFieldProps('email')}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm"
-            />
+            <div>
+                <input
+                    type="email"
+                    placeholder="Email address *"
+                    {...formik.getFieldProps('email')}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.email && formik.errors.email
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-200'
+                        }`}
+                />
+                {formik.touched.email && formik.errors.email && (
+                    <p className="mt-1 text-xs text-red-600">{formik.errors.email}</p>
+                )}
+            </div>
+
+            <div>
+                <input
+                    type="password"
+                    placeholder="Password *"
+                    {...formik.getFieldProps('password')}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.password && formik.errors.password
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-200'
+                        }`}
+                />
+                {formik.touched.password && formik.errors.password && (
+                    <p className="mt-1 text-xs text-red-600">{formik.errors.password}</p>
+                )}
+            </div>
+
+            <div>
+                <input
+                    type="password"
+                    placeholder="Confirm password *"
+                    {...formik.getFieldProps('confirmPassword')}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.confirmPassword && formik.errors.confirmPassword
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-200'
+                        }`}
+                />
+                {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+                    <p className="mt-1 text-xs text-red-600">{formik.errors.confirmPassword}</p>
+                )}
+            </div>
 
             <input
                 type="text"
@@ -122,37 +218,110 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
 
     const renderOrganizationFields = () => (
         <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-900 mb-3">Admin User Details</h3>
+
             <div className="grid grid-cols-2 gap-3">
-                <input
-                    type="text"
-                    placeholder="Your first name"
-                    {...formik.getFieldProps('adminFirstName')}
-                    className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm"
-                />
-                <input
-                    type="text"
-                    placeholder="Your last name"
-                    {...formik.getFieldProps('adminLastName')}
-                    className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm"
-                />
+                <div>
+                    <input
+                        type="text"
+                        placeholder="Your first name *"
+                        {...formik.getFieldProps('adminFirstName')}
+                        className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm w-full ${formik.touched.adminFirstName && formik.errors.adminFirstName
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200'
+                            }`}
+                    />
+                    {formik.touched.adminFirstName && formik.errors.adminFirstName && (
+                        <p className="mt-1 text-xs text-red-600">{formik.errors.adminFirstName}</p>
+                    )}
+                </div>
+                <div>
+                    <input
+                        type="text"
+                        placeholder="Your last name"
+                        {...formik.getFieldProps('adminLastName')}
+                        className="px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm w-full"
+                    />
+                </div>
             </div>
 
-            <input
-                type="email"
-                placeholder="Your work email"
-                {...formik.getFieldProps('adminEmail')}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm"
-            />
+            <div>
+                <input
+                    type="email"
+                    placeholder="Your email address *"
+                    {...formik.getFieldProps('adminEmail')}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.adminEmail && formik.errors.adminEmail
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-200'
+                        }`}
+                />
+                {formik.touched.adminEmail && formik.errors.adminEmail && (
+                    <p className="mt-1 text-xs text-red-600">{formik.errors.adminEmail}</p>
+                )}
+            </div>
+
+            <div>
+                <input
+                    type="password"
+                    placeholder="Your password *"
+                    {...formik.getFieldProps('adminPassword')}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.adminPassword && formik.errors.adminPassword
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-200'
+                        }`}
+                />
+                {formik.touched.adminPassword && formik.errors.adminPassword && (
+                    <p className="mt-1 text-xs text-red-600">{formik.errors.adminPassword}</p>
+                )}
+            </div>
+
+            <div>
+                <input
+                    type="password"
+                    placeholder="Confirm password *"
+                    {...formik.getFieldProps('confirmAdminPassword')}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm ${formik.touched.confirmAdminPassword && formik.errors.confirmAdminPassword
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-200'
+                        }`}
+                />
+                {formik.touched.confirmAdminPassword && formik.errors.confirmAdminPassword && (
+                    <p className="mt-1 text-xs text-red-600">{formik.errors.confirmAdminPassword}</p>
+                )}
+            </div>
 
             <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-sm font-medium text-gray-900 mb-3">Organization Details</h3>
 
-                <input
-                    type="text"
-                    placeholder="Organization name"
-                    {...formik.getFieldProps('organizationName')}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm mb-3"
-                />
+                <div>
+                    <input
+                        type="text"
+                        placeholder="Organization name *"
+                        {...formik.getFieldProps('organizationName')}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm mb-3 ${formik.touched.organizationName && formik.errors.organizationName
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200'
+                            }`}
+                    />
+                    {formik.touched.organizationName && formik.errors.organizationName && (
+                        <p className="mt-1 mb-3 text-xs text-red-600">{formik.errors.organizationName}</p>
+                    )}
+                </div>
+
+                <div>
+                    <input
+                        type="email"
+                        placeholder="Organization email *"
+                        {...formik.getFieldProps('organizationEmail')}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 placeholder-gray-400 text-sm mb-3 ${formik.touched.organizationEmail && formik.errors.organizationEmail
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-200'
+                            }`}
+                    />
+                    {formik.touched.organizationEmail && formik.errors.organizationEmail && (
+                        <p className="mt-1 mb-3 text-xs text-red-600">{formik.errors.organizationEmail}</p>
+                    )}
+                </div>
 
                 <textarea
                     placeholder="Brief description of your organization (optional)"
@@ -198,7 +367,8 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
             </div>
         </div>
     )
-
+    console.log('formik.errors', formik.errors)
+    console.log('formik.values', formik.values)
     return (
         <div className="space-y-8">
             <div className="text-center space-y-3">
@@ -215,7 +385,8 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
                 <button
                     type="button"
                     onClick={handleGoogleAuth}
-                    className="w-full flex items-center justify-center px-4 py-3 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 text-sm font-medium"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center px-4 py-3 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 text-sm font-medium disabled:opacity-50"
                 >
                     <svg className="w-4 h-4 mr-3" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -235,6 +406,15 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Error Display */}
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="text-sm text-red-800">
+                        {error}
+                    </div>
+                </div>
+            )}
 
             {/* Role Selection */}
             {!selectedRole && (
@@ -256,7 +436,8 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
                                     key={role.value}
                                     type="button"
                                     onClick={() => handleRoleSelect(role.value)}
-                                    className="p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-all duration-200 text-left group"
+                                    disabled={isLoading}
+                                    className="p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-all duration-200 text-left group disabled:opacity-50"
                                 >
                                     <div className="flex items-start space-x-3">
                                         <div className="w-10 h-10 bg-gray-100 group-hover:bg-orange-100 rounded-lg flex items-center justify-center transition-colors">
@@ -296,26 +477,39 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
                         </div>
                         <button
                             type="button"
-                            onClick={() => setSelectedRole('')}
-                            className="text-xs text-orange-700 hover:text-orange-800 underline"
+                            onClick={() => {
+                                setSelectedRole('')
+                                formik.resetForm()
+                                dispatch(clearError())
+                            }}
+                            disabled={isLoading}
+                            className="text-xs text-orange-700 hover:text-orange-800 underline disabled:opacity-50"
                         >
                             Change
                         </button>
                     </div>
 
-                    {/* Dynamic Form Fields */}
-                    {selectedRole === 'user' ? renderUserFields() : renderOrganizationFields()}
+                    <form onSubmit={formik.handleSubmit}>
+                        {selectedRole === 'user' ? renderUserFields() : renderOrganizationFields()}
 
-                    {/* Submit Button */}
-                    <button
-                        type="button"
-                        onClick={formik.handleSubmit}
-                        disabled={!formik.values.email}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center"
-                    >
-                        {selectedRole === 'user' ? 'Join Organization' : 'Create Organization'}
-                        <ArrowRight className="ml-2 w-4 h-4" />
-                    </button>
+                        <button
+                            type="submit"
+                            disabled={!formik.isValid || isLoading}
+                            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 px-4 mt-5 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center"
+                        >
+                            {isLoading ? (
+                                <div className="flex items-center">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Creating Account...
+                                </div>
+                            ) : (
+                                <>
+                                    {selectedRole === 'user' ? 'Create Account' : 'Create Organization'}
+                                    <ArrowRight className="ml-2 w-4 h-4" />
+                                </>
+                            )}
+                        </button>
+                    </form>
 
                     {/* Terms and Privacy */}
                     <p className="text-xs text-gray-500 text-center">
@@ -331,12 +525,12 @@ const Registration = ({ handleGoogleAuth, setRegister }) => {
                 </div>
             )}
 
-            {/* Login Link */}
             <div className="text-center text-xs text-gray-500">
                 Already have an account?{' '}
                 <button
                     onClick={() => setRegister(false)}
-                    className="text-orange-600 hover:text-orange-700 font-medium">
+                    disabled={isLoading}
+                    className="text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50">
                     Sign in
                 </button>
             </div>

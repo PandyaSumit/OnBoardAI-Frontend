@@ -4,10 +4,8 @@ import axios from 'axios';
 
 const API_URL = `${import.meta.env.VITE_BACKEND_URL}/auth`;
 
-// Configure axios defaults
-axios.defaults.withCredentials = true; // Important for refresh token cookies
+axios.defaults.withCredentials = true;
 
-// Create axios interceptor for token refresh
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -19,12 +17,17 @@ const processQueue = (error, token = null) => {
             prom.resolve(token);
         }
     });
-
     failedQueue = [];
 };
 
-// Axios request interceptor to add token
-axios.interceptors.request.use((config) => {
+// Create a separate axios instance for auth to avoid circular dependencies
+const authAxios = axios.create({
+    baseURL: API_URL,
+    withCredentials: true
+});
+
+// Request interceptor
+authAxios.interceptors.request.use((config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -32,19 +35,24 @@ axios.interceptors.request.use((config) => {
     return config;
 });
 
-// Axios response interceptor for token refresh
-axios.interceptors.response.use(
+// Response interceptor with improved error handling
+authAxios.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
+        // Check for 401 errors and token expiration
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            console.log('Token expired, attempting refresh...');
+
+            // Check if we're already refreshing
             if (isRefreshing) {
+                console.log('Already refreshing, queuing request...');
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
                 }).then(token => {
                     originalRequest.headers.Authorization = `Bearer ${token}`;
-                    return axios(originalRequest);
+                    return authAxios(originalRequest);
                 }).catch(err => {
                     return Promise.reject(err);
                 });
@@ -54,18 +62,37 @@ axios.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                const response = await axios.post(`${API_URL}/refresh`);
+                console.log('Making refresh token request...');
+                // Use the auth axios instance for refresh
+                const response = await authAxios.post('/refresh');
+                console.log('Refresh token response:', response.data);
+
                 const { accessToken } = response.data;
 
-                localStorage.setItem('accessToken', accessToken);
-                processQueue(null, accessToken);
+                if (accessToken) {
+                    localStorage.setItem('accessToken', accessToken);
+                    processQueue(null, accessToken);
 
-                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-                return axios(originalRequest);
+                    // Update the original request with new token
+                    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+                    console.log('Retrying original request with new token...');
+                    return authAxios(originalRequest);
+                } else {
+                    throw new Error('No access token in refresh response');
+                }
             } catch (refreshError) {
+                console.error('Refresh token failed:', refreshError);
                 processQueue(refreshError, null);
+
+                // Clear tokens and redirect to login
                 localStorage.removeItem('accessToken');
-                window.location.href = '/login';
+
+                // Only redirect if we're not already on login page
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
+
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
@@ -80,13 +107,11 @@ axios.interceptors.response.use(
 // ASYNC THUNKS
 // ====================
 
-// Register Organization (Creates org + admin user)
 export const registerOrganization = createAsyncThunk(
     'auth/registerOrganization',
     async (orgData, { rejectWithValue }) => {
-        console.log('orgData: ', orgData);
         try {
-            const response = await axios.post(`${API_URL}/register`, orgData);
+            const response = await authAxios.post('/register/organization', orgData);
 
             // Store tokens
             if (response.data.accessToken) {
@@ -96,7 +121,27 @@ export const registerOrganization = createAsyncThunk(
             return response.data;
         } catch (error) {
             return rejectWithValue(
-                error.response?.data?.message || 'Registration failed'
+                error.response?.data?.message || 'Organization registration failed'
+            );
+        }
+    }
+);
+
+export const registerUser = createAsyncThunk(
+    'auth/registerUser',
+    async (userData, { rejectWithValue }) => {
+        try {
+            const response = await authAxios.post('/register/user', userData);
+
+            // Store tokens
+            if (response.data.accessToken) {
+                localStorage.setItem('accessToken', response.data.accessToken);
+            }
+
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(
+                error.response?.data?.message || 'User registration failed'
             );
         }
     }
@@ -106,14 +151,17 @@ export const registerOrganization = createAsyncThunk(
 export const login = createAsyncThunk(
     'auth/login',
     async (credentials, { rejectWithValue }) => {
+        console.log('credentials: ', credentials);
         try {
-            const response = await axios.post(`${API_URL}/login`, credentials);
+            const response = await authAxios.post('/login', credentials);
+            console.log('response: ', response);
 
             // Store access token
             if (response.data.accessToken) {
                 localStorage.setItem('accessToken', response.data.accessToken);
             }
 
+            console.log('response.data: ', response.data);
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -123,19 +171,23 @@ export const login = createAsyncThunk(
     }
 );
 
-// Refresh Token
+// Refresh Token - Updated with better error handling
 export const refreshToken = createAsyncThunk(
     'auth/refreshToken',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/refresh`);
+            console.log('Manual refresh token call...');
+            const response = await authAxios.post('/refresh');
+            console.log('Manual refresh response:', response.data);
 
             if (response.data.accessToken) {
                 localStorage.setItem('accessToken', response.data.accessToken);
+                return response.data;
+            } else {
+                throw new Error('No access token in response');
             }
-
-            return response.data;
         } catch (error) {
+            console.error('Manual refresh failed:', error);
             localStorage.removeItem('accessToken');
             return rejectWithValue(
                 error.response?.data?.message || 'Token refresh failed'
@@ -144,14 +196,18 @@ export const refreshToken = createAsyncThunk(
     }
 );
 
-// Get Current User
+// Get Current User - with retry logic
 export const getCurrentUser = createAsyncThunk(
     'auth/getCurrentUser',
-    async (_, { rejectWithValue }) => {
+    async (_, { rejectWithValue, dispatch }) => {
         try {
-            const response = await axios.get(`${API_URL}/me`);
+            const response = await authAxios.get('/me');
             return response.data;
         } catch (error) {
+            // If it's a 401, try refreshing token first
+            if (error.response?.status === 401) {
+                console.log('getCurrentUser got 401, token will be refreshed by interceptor');
+            }
             return rejectWithValue(
                 error.response?.data?.message || 'Failed to fetch user'
             );
@@ -164,7 +220,7 @@ export const switchOrganization = createAsyncThunk(
     'auth/switchOrganization',
     async (orgSlug, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/switch-org/${orgSlug}`);
+            const response = await authAxios.post(`/switch-org/${orgSlug}`);
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -179,7 +235,7 @@ export const updateProfile = createAsyncThunk(
     'auth/updateProfile',
     async (profileData, { rejectWithValue }) => {
         try {
-            const response = await axios.patch(`${API_URL}/profile`, profileData);
+            const response = await authAxios.patch('/profile', profileData);
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -194,7 +250,7 @@ export const changePassword = createAsyncThunk(
     'auth/changePassword',
     async (passwordData, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/change-password`, passwordData);
+            const response = await authAxios.post('/change-password', passwordData);
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -209,7 +265,7 @@ export const logout = createAsyncThunk(
     'auth/logout',
     async (_, { rejectWithValue }) => {
         try {
-            await axios.post(`${API_URL}/logout`);
+            await authAxios.post('/logout');
             localStorage.removeItem('accessToken');
             return {};
         } catch (error) {
@@ -227,7 +283,7 @@ export const logoutAll = createAsyncThunk(
     'auth/logoutAll',
     async (_, { rejectWithValue }) => {
         try {
-            await axios.post(`${API_URL}/logout-all`);
+            await authAxios.post('/logout-all');
             localStorage.removeItem('accessToken');
             return {};
         } catch (error) {
@@ -244,7 +300,7 @@ export const getUserSessions = createAsyncThunk(
     'auth/getUserSessions',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await axios.get(`${API_URL}/sessions`);
+            const response = await authAxios.get('/sessions');
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -259,7 +315,7 @@ export const revokeSession = createAsyncThunk(
     'auth/revokeSession',
     async (sessionId, { rejectWithValue }) => {
         try {
-            await axios.delete(`${API_URL}/sessions/${sessionId}`);
+            await authAxios.delete(`/sessions/${sessionId}`);
             return { sessionId };
         } catch (error) {
             return rejectWithValue(
@@ -274,7 +330,7 @@ export const verifyEmail = createAsyncThunk(
     'auth/verifyEmail',
     async (token, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/verify-email`, { token });
+            const response = await authAxios.post('/verify-email', { token });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -289,7 +345,7 @@ export const requestPasswordReset = createAsyncThunk(
     'auth/requestPasswordReset',
     async (email, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/forgot-password`, { email });
+            const response = await authAxios.post('/forgot-password', { email });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -304,7 +360,7 @@ export const resetPassword = createAsyncThunk(
     'auth/resetPassword',
     async ({ token, password }, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/reset-password`, { token, password });
+            const response = await authAxios.post('/reset-password', { token, password });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -323,7 +379,7 @@ export const generateMFASecret = createAsyncThunk(
     'auth/generateMFASecret',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/mfa/generate`);
+            const response = await authAxios.post('/mfa/generate');
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -338,7 +394,7 @@ export const enableMFA = createAsyncThunk(
     'auth/enableMFA',
     async (token, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/mfa/enable`, { token });
+            const response = await authAxios.post('/mfa/enable', { token });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -353,7 +409,7 @@ export const disableMFA = createAsyncThunk(
     'auth/disableMFA',
     async ({ password, mfaToken }, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/mfa/disable`, { password, mfaToken });
+            const response = await authAxios.post('/mfa/disable', { password, mfaToken });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -368,7 +424,7 @@ export const generateBackupCodes = createAsyncThunk(
     'auth/generateBackupCodes',
     async (password, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/mfa/backup-codes`, { password });
+            const response = await authAxios.post('/mfa/backup-codes', { password });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -387,7 +443,7 @@ export const joinByInvitation = createAsyncThunk(
     'auth/joinByInvitation',
     async (invitationData, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/join/invitation`, invitationData);
+            const response = await authAxios.post('/join/invitation', invitationData);
 
             // Store access token if provided (for new user registration)
             if (response.data.accessToken) {
@@ -408,7 +464,7 @@ export const joinByCode = createAsyncThunk(
     'auth/joinByCode',
     async ({ code, orgSlug }, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/join/code`, { code, orgSlug });
+            const response = await authAxios.post('/join/code', { code, orgSlug });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -423,7 +479,7 @@ export const requestToJoin = createAsyncThunk(
     'auth/requestToJoin',
     async ({ orgSlug, message }, { rejectWithValue }) => {
         try {
-            const response = await axios.post(`${API_URL}/join/request`, { orgSlug, message });
+            const response = await authAxios.post('/join/request', { orgSlug, message });
             return response.data;
         } catch (error) {
             return rejectWithValue(
@@ -541,7 +597,28 @@ const authSlice = createSlice({
     extraReducers: (builder) => {
         builder
             // ====================
-            // REGISTRATION & LOGIN
+            // USER REGISTRATION
+            // ====================
+            .addCase(registerUser.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(registerUser.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.user = action.payload.user;
+                state.organization = action.payload.organization;
+                state.organizations = action.payload.organization ? [action.payload.organization] : [];
+                state.accessToken = action.payload.accessToken;
+                state.isAuthenticated = true;
+                state.userType = 'user';
+            })
+            .addCase(registerUser.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+
+            // ====================
+            // ORGANIZATION REGISTRATION
             // ====================
             .addCase(registerOrganization.pending, (state) => {
                 state.isLoading = true;
@@ -554,13 +631,16 @@ const authSlice = createSlice({
                 state.organizations = action.payload.organization ? [action.payload.organization] : [];
                 state.accessToken = action.payload.accessToken;
                 state.isAuthenticated = true;
-                state.userType = 'user'; // New unified type
+                state.userType = 'user';
             })
             .addCase(registerOrganization.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
             })
 
+            // ====================
+            // LOGIN
+            // ====================
             .addCase(login.pending, (state) => {
                 state.isLoading = true;
                 state.error = null;
@@ -592,18 +672,32 @@ const authSlice = createSlice({
             // ====================
             // TOKEN REFRESH
             // ====================
+            .addCase(refreshToken.pending, (state) => {
+                console.log('Refresh token pending...');
+            })
             .addCase(refreshToken.fulfilled, (state, action) => {
-                state.user = action.payload.user;
-                state.organization = action.payload.organization;
+                console.log('Refresh token fulfilled:', action.payload);
+                if (action.payload.user) {
+                    state.user = action.payload.user;
+                }
+                if (action.payload.organization) {
+                    state.organization = action.payload.organization;
+                }
+                if (action.payload.organizations) {
+                    state.organizations = action.payload.organizations;
+                }
                 state.accessToken = action.payload.accessToken;
                 state.isAuthenticated = true;
+                state.error = null;
             })
-            .addCase(refreshToken.rejected, (state) => {
+            .addCase(refreshToken.rejected, (state, action) => {
+                console.log('Refresh token rejected:', action.payload);
                 state.user = null;
                 state.organization = null;
                 state.organizations = [];
                 state.accessToken = null;
                 state.isAuthenticated = false;
+                // Don't set error for refresh failures as they're handled by redirect
             })
 
             // ====================
@@ -623,7 +717,7 @@ const authSlice = createSlice({
             .addCase(getCurrentUser.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
-                state.isAuthenticated = false;
+                // Don't set isAuthenticated to false here as token refresh might fix it
             })
 
             // ====================
@@ -800,3 +894,6 @@ export const {
 } = authSlice.actions;
 
 export default authSlice.reducer;
+
+// Export the authAxios instance for use in other files if needed
+export { authAxios };

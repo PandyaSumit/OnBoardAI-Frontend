@@ -67,7 +67,7 @@ const MfaAuth = ({ onSubmit, isLoading, formik, error }) => {
 
                         <button
                             type="submit"
-                            disabled={isLoading || (!formik.values.mfaToken && !formik.values.backupCode)}
+                            disabled={isLoading || (!formik.values.mfaToken && !formik. )}
                             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center"
                         >
                             {isLoading ? (

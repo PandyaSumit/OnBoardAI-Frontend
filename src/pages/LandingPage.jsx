@@ -87,7 +87,6 @@ const LandingPage = () => {
                 )}
             </nav>
 
-            {/* Hero Section - Full Screen Authentication */}
             <section id='authSection' className="min-h-screen flex bg-gray-50">
                 <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
                     <div className="w-full max-w-md">
@@ -118,11 +117,9 @@ const LandingPage = () => {
                     </div>
                 </div>
 
-                {/* Right Side - Conversational Interface */}
                 <div className="hidden lg:flex w-1/2 bg-stone-100 relative overflow-hidden m-4 mt-[5rem] rounded-2xl">
                     <div className="flex flex-col justify-center p-10 w-full max-w-2xl mx-auto space-y-6">
 
-                        {/* Conversation Analysis */}
                         <div className="bg-white rounded-xl shadow-sm border p-5">
                             <div className="flex items-center space-x-2 mb-3">
                                 <MessageSquare className="w-4 h-4 text-indigo-500" />
@@ -142,7 +139,6 @@ const LandingPage = () => {
                             </div>
                         </div>
 
-                        {/* AI Tasks */}
                         <div className="bg-white rounded-xl shadow-sm border p-5">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Zap className="w-4 h-4 text-purple-500" />
@@ -156,7 +152,6 @@ const LandingPage = () => {
                             </ul>
                         </div>
 
-                        {/* Onboarding Template */}
                         <div className="bg-white rounded-xl shadow-sm border p-5">
                             <div className="flex items-center space-x-2 mb-2">
                                 <FileText className="w-4 h-4 text-blue-500" />
@@ -167,7 +162,6 @@ const LandingPage = () => {
                             </p>
                         </div>
 
-                        {/* Typing Indicator */}
                         <div className="flex items-center space-x-2 text-xs text-gray-500 opacity-70">
                             <Bot className="w-4 h-4 text-gray-400" />
                             <span>Analyzing next request...</span>
@@ -178,7 +172,6 @@ const LandingPage = () => {
             </section>
 
 
-            {/* Demo Preview */}
             <section className="py-20 bg-gray-50">
                 <div className="max-w-6xl mx-auto px-6 lg:px-8">
                     <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
@@ -234,7 +227,6 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Features */}
             <section id="product" className="py-20 bg-gradient-to-b from-gray-50 to-white">
                 <div className="max-w-7xl mx-auto px-6 lg:px-8">
                     <div className="text-center space-y-6 mb-16">
@@ -325,7 +317,6 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Solutions */}
             <section id="solutions" className="py-20 bg-gradient-to-br from-gray-50 via-white to-gray-50">
                 <div className="max-w-7xl mx-auto px-6 lg:px-8">
                     {/* Heading */}
@@ -409,7 +400,6 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Testimonials */}
             <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-gray-50">
                 <div className="max-w-6xl mx-auto px-6 lg:px-8 text-center">
                     <div className="space-y-6 mb-16">
@@ -476,8 +466,6 @@ const LandingPage = () => {
                 </div>
             </section>
 
-
-            {/* Pricing */}
             <section id="pricing" className="py-20 bg-gradient-to-br from-gray-50 via-white to-gray-50">
                 <div className="max-w-6xl mx-auto px-6 lg:px-8">
                     <div className="text-center space-y-6 mb-16">
@@ -624,7 +612,6 @@ const LandingPage = () => {
                 </div>
             </section>
 
-            {/* Footer */}
             <footer className="bg-white border-t border-gray-100 py-8">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
