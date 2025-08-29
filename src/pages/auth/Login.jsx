@@ -1,15 +1,23 @@
 import { useFormik } from 'formik';
 import { AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
-import React, { useState } from 'react'
-import { useDispatch } from 'react-redux';
-import { login } from '../../store/slices/authSlice';
+import React, { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux';
+import { clearError, login } from '../../store/slices/authSlice';
 import { loginValidationSchema } from '../../schemas/authSchema';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Login = ({ handleGoogleAuth, setRegister, emailStep, setEmailStep }) => {
     const [showPassword, setShowPassword] = useState(false)
+    const [rememberMe, setRememberMe] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const dispatch = useDispatch()
     const navigate = useNavigate()
+    const location = useLocation();
+
+    const { isLoading, isAuthenticated } = useSelector(state => state.auth);
+
+    const from = location.state?.from?.pathname || '/dashboard';
 
     const formik = useFormik({
         initialValues: {
@@ -18,25 +26,79 @@ const Login = ({ handleGoogleAuth, setRegister, emailStep, setEmailStep }) => {
             rememberMe: false,
         },
         validationSchema: loginValidationSchema,
-        onSubmit: async (values, { setSubmitting }) => {
+        validateOnBlur: true,
+        validateOnChange: false,
+        onSubmit: async (values, { setSubmitting, setFieldError }) => {
+            setIsSubmitting(true);
             try {
                 if (emailStep) {
-                    dispatch(login(values));
+                    await dispatch(login({
+                        email: values.email,
+                        password: values.password,
+                        rememberMe: values.rememberMe
+                    })).unwrap();
                 } else {
                     console.log('Continue with email:', values.email);
                     setEmailStep(true);
                 }
                 navigate('/dashboard');
             } catch (error) {
-                console.error('Auth error:', error);
+                console.error('Login error:', error);
+                if (error.includes('email') || error.includes('user not found')) {
+                    setFieldError('email', 'No account found with this email');
+                } else if (error.includes('password')) {
+                    setFieldError('password', 'Incorrect password');
+                }
+            } finally {
+                setIsSubmitting(false);
+                setSubmitting(false);
             }
-            setSubmitting(false);
         }
     });
 
     const handleMoveNextStep = () => {
         setEmailStep(true);
     }
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate(from, { replace: true });
+        }
+    }, [isAuthenticated, navigate, from]);
+
+    useEffect(() => {
+        return () => {
+            dispatch(clearError());
+        };
+    }, [dispatch]);
+
+    useEffect(() => {
+        if (formik.values.email) {
+            dispatch(clearError());
+        }
+    }, [formik.values.email, dispatch]);
+
+    const getButtonText = () => {
+        if (isSubmitting || isLoading) {
+            return emailStep ? 'Signing in...' : 'Checking...';
+        }
+        return emailStep ? 'Sign in' : 'Continue with Email';
+    };
+
+    const getButtonIcon = () => {
+        if (isSubmitting || isLoading) {
+            return (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            );
+        }
+        return emailStep ? <ArrowRight className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />;
+    }
+    const isButtonDisabled = () => {
+        if (emailStep) {
+            return !formik.values.password || isSubmitting || isLoading;
+        }
+        return !formik.values.email || isSubmitting || isLoading;
+    };
 
     return (
         <>
@@ -99,12 +161,12 @@ const Login = ({ handleGoogleAuth, setRegister, emailStep, setEmailStep }) => {
 
                             <button
                                 type="button"
+                                disabled={isButtonDisabled()}
                                 onClick={() => handleMoveNextStep()}
-                                disabled={!formik.values.email}
                                 className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center"
                             >
-                                Get started free
-                                <ArrowRight className="ml-2 w-4 h-4" />
+                                <span>{getButtonText()}</span>
+                                {getButtonIcon()}
                             </button>
                         </div>
                     </div>
@@ -164,14 +226,32 @@ const Login = ({ handleGoogleAuth, setRegister, emailStep, setEmailStep }) => {
                             )}
                         </div>
 
+                        {/* Remember Me */}
+                        <div className="flex items-center">
+                            <input
+                                id="rememberMe"
+                                type="checkbox"
+                                checked={rememberMe}
+                                onChange={(e) => {
+                                    setRememberMe(e.target.checked);
+                                    formik.setFieldValue('rememberMe', e.target.checked);
+                                }}
+                                className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
+                                Keep me signed in for 30 days
+                            </label>
+                        </div>
+
                         {/* Continue Button */}
                         <button
                             type="button"
                             onClick={formik.handleSubmit}
-                            disabled={!formik.values.password}
+                            disabled={isButtonDisabled()}
                             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center"
                         >
-                            Continue <ArrowRight className="ml-2 w-4 h-4" />
+                            <span>{getButtonText()}</span>
+                            {getButtonIcon()}
                         </button>
 
                         {/* Switch Email */}

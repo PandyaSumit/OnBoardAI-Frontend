@@ -6,7 +6,38 @@ const API_URL = `${import.meta.env.VITE_BACKEND_URL}/auth`;
 
 axios.defaults.withCredentials = true;
 
+// Token management utilities
+class TokenManager {
+    static getAccessToken() {
+        return localStorage.getItem('accessToken');
+    }
+
+    static setAccessToken(token) {
+        if (token) {
+            localStorage.setItem('accessToken', token);
+        } else {
+            localStorage.removeItem('accessToken');
+        }
+    }
+
+    static clearTokens() {
+        localStorage.removeItem('accessToken');
+    }
+
+    static isTokenExpired(token) {
+        if (!token) return true;
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.exp * 1000 < Date.now();
+        } catch {
+            return true;
+        }
+    }
+}
+
+// Refresh token queue management
 let isRefreshing = false;
+let refreshPromise = null;
 let failedQueue = [];
 
 const processQueue = (error, token = null) => {
@@ -20,122 +51,281 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
-// Create a separate axios instance for auth to avoid circular dependencies
+// Create axios instance for auth
 const authAxios = axios.create({
     baseURL: API_URL,
     withCredentials: true
 });
 
-// Request interceptor
+// Enhanced request interceptor
 authAxios.interceptors.request.use((config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
+    const token = TokenManager.getAccessToken();
+    if (token && !TokenManager.isTokenExpired(token)) {
         config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
 });
 
-// Response interceptor with improved error handling
+// Enhanced response interceptor with better refresh logic
+// authAxios.interceptors.response.use(
+//     (response) => response,
+//     async (error) => {
+//         const originalRequest = error.config;
+
+//         if (error.response?.status === 401 && !originalRequest._retry) {
+//             originalRequest._retry = true;
+
+//             // If we're already refreshing, queue this request
+//             if (isRefreshing) {
+//                 return new Promise((resolve, reject) => {
+//                     failedQueue.push({ resolve, reject });
+//                 }).then(token => {
+//                     if (token) {
+//                         originalRequest.headers.Authorization = `Bearer ${token}`;
+//                         return authAxios(originalRequest);
+//                     }
+//                     return Promise.reject(error);
+//                 });
+//             }
+
+//             isRefreshing = true;
+
+//             try {
+//                 // Use existing refresh promise if available
+//                 if (!refreshPromise) {
+//                     refreshPromise = authAxios.post('/refresh');
+//                 }
+
+//                 const response = await refreshPromise;
+//                 const { accessToken } = response.data;
+
+//                 if (accessToken) {
+//                     TokenManager.setAccessToken(accessToken);
+//                     processQueue(null, accessToken);
+
+//                     originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+//                     return authAxios(originalRequest);
+//                 } else {
+//                     throw new Error('No access token in refresh response');
+//                 }
+//             } catch (refreshError) {
+//                 processQueue(refreshError, null);
+//                 TokenManager.clearTokens();
+
+//                 // Only redirect if not on auth pages
+//                 const currentPath = window.location.pathname;
+//                 const authPaths = ['/login', '/register', '/reset-password', '/verify-email'];
+//                 if (!authPaths.some(path => currentPath.includes(path))) {
+//                     window.location.href = '/login';
+//                 }
+
+//                 return Promise.reject(refreshError);
+//             } finally {
+//                 isRefreshing = false;
+//                 refreshPromise = null;
+//             }
+//         }
+
+//         return Promise.reject(error);
+//     }
+// );
+
 authAxios.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const originalRequest = error.config;
-
-        // Check for 401 errors and token expiration
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            console.log('Token expired, attempting refresh...');
-
-            // Check if we're already refreshing
-            if (isRefreshing) {
-                console.log('Already refreshing, queuing request...');
-                return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
-                }).then(token => {
-                    originalRequest.headers.Authorization = `Bearer ${token}`;
-                    return authAxios(originalRequest);
-                }).catch(err => {
-                    return Promise.reject(err);
-                });
-            }
-
-            originalRequest._retry = true;
-            isRefreshing = true;
-
-            try {
-                console.log('Making refresh token request...');
-                // Use the auth axios instance for refresh
-                const response = await authAxios.post('/refresh');
-                console.log('Refresh token response:', response.data);
-
-                const { accessToken } = response.data;
-
-                if (accessToken) {
-                    localStorage.setItem('accessToken', accessToken);
-                    processQueue(null, accessToken);
-
-                    // Update the original request with new token
-                    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-
-                    console.log('Retrying original request with new token...');
-                    return authAxios(originalRequest);
-                } else {
-                    throw new Error('No access token in refresh response');
-                }
-            } catch (refreshError) {
-                console.error('Refresh token failed:', refreshError);
-                processQueue(refreshError, null);
-
-                // Clear tokens and redirect to login
-                localStorage.removeItem('accessToken');
-
-                // Only redirect if we're not already on login page
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
-                }
-
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
-            }
-        }
-
+        // Don't handle refresh in interceptor to avoid conflicts
         return Promise.reject(error);
     }
 );
 
 // ====================
-// ASYNC THUNKS
+// ENHANCED ASYNC THUNKS
 // ====================
 
-export const registerOrganization = createAsyncThunk(
-    'auth/registerOrganization',
-    async (orgData, { rejectWithValue }) => {
+export const initializeAuth = createAsyncThunk(
+    'auth/initializeAuth',
+    async (_, { dispatch, rejectWithValue }) => {
         try {
-            const response = await authAxios.post('/register/organization', orgData);
+            console.log('Starting auth initialization...');
 
-            // Store tokens
+            // Check if we have a stored access token
+            const token = TokenManager.getAccessToken();
+            console.log('Stored token exists:', !!token);
+
+            // If no token, try to refresh first
+            if (!token || TokenManager.isTokenExpired(token)) {
+                console.log('No valid token, attempting refresh...');
+                try {
+                    const refreshResult = await dispatch(refreshToken()).unwrap();
+                    console.log('Refresh successful:', !!refreshResult.user);
+                    if (refreshResult.user) {
+                        return refreshResult;
+                    }
+                } catch (refreshError) {
+                    console.log('Refresh failed:', refreshError);
+                    // Don't return rejection here, continue to check current user
+                }
+            }
+
+            // If we have a token, try to get current user
+            if (token && !TokenManager.isTokenExpired(token)) {
+                console.log('Trying to get current user...');
+                try {
+                    const userResult = await dispatch(getCurrentUser()).unwrap();
+                    console.log('Current user fetch successful');
+                    return userResult;
+                } catch (userError) {
+                    console.log('Current user fetch failed:', userError);
+                    // Try refresh as fallback
+                    try {
+                        const refreshResult = await dispatch(refreshToken()).unwrap();
+                        return refreshResult;
+                    } catch (finalError) {
+                        console.log('Final refresh failed:', finalError);
+                        TokenManager.clearTokens();
+                        return rejectWithValue('Session validation failed');
+                    }
+                }
+            }
+
+            // No valid session found
+            console.log('No valid session found, user not authenticated');
+            TokenManager.clearTokens();
+            return rejectWithValue('No valid session');
+
+        } catch (error) {
+            console.error('Auth initialization error:', error);
+            TokenManager.clearTokens();
+            return rejectWithValue('Initialization failed');
+        }
+    }
+);
+
+// Auto-refresh token before it expires
+export const autoRefreshToken = createAsyncThunk(
+    'auth/autoRefreshToken',
+    async (_, { getState, rejectWithValue }) => {
+        const { auth } = getState();
+        const token = auth.accessToken;
+
+        if (!token || TokenManager.isTokenExpired(token)) {
+            try {
+                const response = await authAxios.post('/refresh');
+                TokenManager.setAccessToken(response.data.accessToken);
+                return response.data;
+            } catch {
+                TokenManager.clearTokens();
+                return rejectWithValue('Auto refresh failed');
+            }
+        }
+
+        return { message: 'Token still valid' };
+    }
+);
+
+// Enhanced login with auto-refresh setup
+export const login = createAsyncThunk(
+    'auth/login',
+    async (credentials, { dispatch, rejectWithValue }) => {
+        try {
+            console.log('Attempting login...');
+            const response = await authAxios.post('/login', credentials);
+
             if (response.data.accessToken) {
-                localStorage.setItem('accessToken', response.data.accessToken);
+                TokenManager.setAccessToken(response.data.accessToken);
+                console.log('Login successful, token stored');
             }
 
             return response.data;
         } catch (error) {
+            console.error('Login error:', error.response?.data?.message);
             return rejectWithValue(
-                error.response?.data?.message || 'Organization registration failed'
+                error.response?.data?.message || 'Login failed'
             );
         }
     }
 );
 
+// Silent refresh (won't show loading states)
+export const silentRefresh = createAsyncThunk(
+    'auth/silentRefresh',
+    async (_, { rejectWithValue }) => {
+        try {
+            const response = await authAxios.post('/refresh');
+
+            if (response.data.accessToken) {
+                TokenManager.setAccessToken(response.data.accessToken);
+                return response.data;
+            } else {
+                throw new Error('No access token in response');
+            }
+        } catch {
+            TokenManager.clearTokens();
+            return rejectWithValue('Silent refresh failed');
+        }
+    }
+);
+
+export const setupAutoRefresh = createAsyncThunk(
+    'auth/setupAutoRefresh',
+    async (_, { dispatch }) => {
+        const token = TokenManager.getAccessToken();
+        if (!token) return;
+
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const expiresIn = payload.exp * 1000 - Date.now();
+
+            const refreshIn = Math.max(expiresIn - 120000, 30000);
+
+            setTimeout(() => {
+                dispatch(silentRefresh());
+            }, refreshIn);
+
+            return { refreshIn };
+        } catch {
+            TokenManager.clearTokens();
+        }
+    }
+);
+
+// Enhanced refresh token
+export const refreshToken = createAsyncThunk(
+    'auth/refreshToken',
+    async (_, { rejectWithValue }) => {
+        try {
+            console.log('Attempting token refresh...');
+            const response = await authAxios.post('/refresh');
+
+            console.log('Refresh response received:', response.status);
+
+            if (response.data.accessToken) {
+                TokenManager.setAccessToken(response.data.accessToken);
+                console.log('New access token stored');
+                return response.data;
+            } else {
+                throw new Error('No access token in response');
+            }
+        } catch (error) {
+            console.error('Refresh token error:', error.response?.status, error.response?.data?.message);
+            TokenManager.clearTokens();
+            return rejectWithValue(
+                error.response?.data?.message || 'Token refresh failed'
+            );
+        }
+    }
+);
+
+// User Registration
 export const registerUser = createAsyncThunk(
     'auth/registerUser',
-    async (userData, { rejectWithValue }) => {
+    async (userData, { dispatch, rejectWithValue }) => {
         try {
             const response = await authAxios.post('/register/user', userData);
 
-            // Store tokens
             if (response.data.accessToken) {
-                localStorage.setItem('accessToken', response.data.accessToken);
+                TokenManager.setAccessToken(response.data.accessToken);
+                dispatch(setupAutoRefresh());
             }
 
             return response.data;
@@ -147,67 +337,68 @@ export const registerUser = createAsyncThunk(
     }
 );
 
-// User Login
-export const login = createAsyncThunk(
-    'auth/login',
-    async (credentials, { rejectWithValue }) => {
-        console.log('credentials: ', credentials);
+// Organization Registration
+export const registerOrganization = createAsyncThunk(
+    'auth/registerOrganization',
+    async (orgData, { dispatch, rejectWithValue }) => {
         try {
-            const response = await authAxios.post('/login', credentials);
-            console.log('response: ', response);
+            const response = await authAxios.post('/register/organization', orgData);
 
-            // Store access token
             if (response.data.accessToken) {
-                localStorage.setItem('accessToken', response.data.accessToken);
+                TokenManager.setAccessToken(response.data.accessToken);
+                dispatch(setupAutoRefresh());
             }
 
-            console.log('response.data: ', response.data);
             return response.data;
         } catch (error) {
             return rejectWithValue(
-                error.response?.data?.message || 'Login failed'
+                error.response?.data?.message || 'Organization registration failed'
             );
         }
     }
 );
 
-// Refresh Token - Updated with better error handling
-export const refreshToken = createAsyncThunk(
-    'auth/refreshToken',
+// Enhanced logout
+export const logout = createAsyncThunk(
+    'auth/logout',
     async (_, { rejectWithValue }) => {
         try {
-            console.log('Manual refresh token call...');
-            const response = await authAxios.post('/refresh');
-            console.log('Manual refresh response:', response.data);
-
-            if (response.data.accessToken) {
-                localStorage.setItem('accessToken', response.data.accessToken);
-                return response.data;
-            } else {
-                throw new Error('No access token in response');
-            }
+            await authAxios.post('/logout');
         } catch (error) {
-            console.error('Manual refresh failed:', error);
-            localStorage.removeItem('accessToken');
-            return rejectWithValue(
-                error.response?.data?.message || 'Token refresh failed'
-            );
+            console.warn('Logout request failed:', error);
+        } finally {
+            TokenManager.clearTokens();
         }
+        return {};
     }
 );
 
-// Get Current User - with retry logic
+// Logout from all devices
+export const logoutAll = createAsyncThunk(
+    'auth/logoutAll',
+    async (_, { rejectWithValue }) => {
+        try {
+            await authAxios.post('/logout-all');
+        } catch (error) {
+            console.warn('Logout all request failed:', error);
+        } finally {
+            TokenManager.clearTokens();
+        }
+        return {};
+    }
+);
+
+// Get Current User with retry logic
 export const getCurrentUser = createAsyncThunk(
     'auth/getCurrentUser',
-    async (_, { rejectWithValue, dispatch }) => {
+    async (_, { rejectWithValue }) => {
         try {
+            console.log('Fetching current user...');
             const response = await authAxios.get('/me');
+            console.log('Current user response received');
             return response.data;
         } catch (error) {
-            // If it's a 401, try refreshing token first
-            if (error.response?.status === 401) {
-                console.log('getCurrentUser got 401, token will be refreshed by interceptor');
-            }
+            console.error('Get current user error:', error.response?.status, error.response?.data?.message);
             return rejectWithValue(
                 error.response?.data?.message || 'Failed to fetch user'
             );
@@ -215,7 +406,7 @@ export const getCurrentUser = createAsyncThunk(
     }
 );
 
-// Switch Organization
+// Other thunks (keeping existing functionality)...
 export const switchOrganization = createAsyncThunk(
     'auth/switchOrganization',
     async (orgSlug, { rejectWithValue }) => {
@@ -230,7 +421,6 @@ export const switchOrganization = createAsyncThunk(
     }
 );
 
-// Update Profile
 export const updateProfile = createAsyncThunk(
     'auth/updateProfile',
     async (profileData, { rejectWithValue }) => {
@@ -245,7 +435,6 @@ export const updateProfile = createAsyncThunk(
     }
 );
 
-// Change Password
 export const changePassword = createAsyncThunk(
     'auth/changePassword',
     async (passwordData, { rejectWithValue }) => {
@@ -260,42 +449,7 @@ export const changePassword = createAsyncThunk(
     }
 );
 
-// Logout
-export const logout = createAsyncThunk(
-    'auth/logout',
-    async (_, { rejectWithValue }) => {
-        try {
-            await authAxios.post('/logout');
-            localStorage.removeItem('accessToken');
-            return {};
-        } catch (error) {
-            // Still clear local storage even if request fails
-            localStorage.removeItem('accessToken');
-            return rejectWithValue(
-                error.response?.data?.message || 'Logout failed'
-            );
-        }
-    }
-);
-
-// Logout All Devices
-export const logoutAll = createAsyncThunk(
-    'auth/logoutAll',
-    async (_, { rejectWithValue }) => {
-        try {
-            await authAxios.post('/logout-all');
-            localStorage.removeItem('accessToken');
-            return {};
-        } catch (error) {
-            localStorage.removeItem('accessToken');
-            return rejectWithValue(
-                error.response?.data?.message || 'Logout all failed'
-            );
-        }
-    }
-);
-
-// Get User Sessions
+// Session management
 export const getUserSessions = createAsyncThunk(
     'auth/getUserSessions',
     async (_, { rejectWithValue }) => {
@@ -310,7 +464,6 @@ export const getUserSessions = createAsyncThunk(
     }
 );
 
-// Revoke Session
 export const revokeSession = createAsyncThunk(
     'auth/revokeSession',
     async (sessionId, { rejectWithValue }) => {
@@ -325,7 +478,7 @@ export const revokeSession = createAsyncThunk(
     }
 );
 
-// Email Verification
+// Email verification
 export const verifyEmail = createAsyncThunk(
     'auth/verifyEmail',
     async (token, { rejectWithValue }) => {
@@ -340,7 +493,7 @@ export const verifyEmail = createAsyncThunk(
     }
 );
 
-// Request Password Reset
+// Password reset
 export const requestPasswordReset = createAsyncThunk(
     'auth/requestPasswordReset',
     async (email, { rejectWithValue }) => {
@@ -355,7 +508,6 @@ export const requestPasswordReset = createAsyncThunk(
     }
 );
 
-// Reset Password
 export const resetPassword = createAsyncThunk(
     'auth/resetPassword',
     async ({ token, password }, { rejectWithValue }) => {
@@ -371,126 +523,7 @@ export const resetPassword = createAsyncThunk(
 );
 
 // ====================
-// MFA THUNKS
-// ====================
-
-// Generate MFA Secret
-export const generateMFASecret = createAsyncThunk(
-    'auth/generateMFASecret',
-    async (_, { rejectWithValue }) => {
-        try {
-            const response = await authAxios.post('/mfa/generate');
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(
-                error.response?.data?.message || 'Failed to generate MFA secret'
-            );
-        }
-    }
-);
-
-// Enable MFA
-export const enableMFA = createAsyncThunk(
-    'auth/enableMFA',
-    async (token, { rejectWithValue }) => {
-        try {
-            const response = await authAxios.post('/mfa/enable', { token });
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(
-                error.response?.data?.message || 'Failed to enable MFA'
-            );
-        }
-    }
-);
-
-// Disable MFA
-export const disableMFA = createAsyncThunk(
-    'auth/disableMFA',
-    async ({ password, mfaToken }, { rejectWithValue }) => {
-        try {
-            const response = await authAxios.post('/mfa/disable', { password, mfaToken });
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(
-                error.response?.data?.message || 'Failed to disable MFA'
-            );
-        }
-    }
-);
-
-// Generate Backup Codes
-export const generateBackupCodes = createAsyncThunk(
-    'auth/generateBackupCodes',
-    async (password, { rejectWithValue }) => {
-        try {
-            const response = await authAxios.post('/mfa/backup-codes', { password });
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(
-                error.response?.data?.message || 'Failed to generate backup codes'
-            );
-        }
-    }
-);
-
-// ====================
-// ORGANIZATION JOINING THUNKS
-// ====================
-
-// Join by Invitation
-export const joinByInvitation = createAsyncThunk(
-    'auth/joinByInvitation',
-    async (invitationData, { rejectWithValue }) => {
-        try {
-            const response = await authAxios.post('/join/invitation', invitationData);
-
-            // Store access token if provided (for new user registration)
-            if (response.data.accessToken) {
-                localStorage.setItem('accessToken', response.data.accessToken);
-            }
-
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(
-                error.response?.data?.message || 'Failed to join organization'
-            );
-        }
-    }
-);
-
-// Join by Code
-export const joinByCode = createAsyncThunk(
-    'auth/joinByCode',
-    async ({ code, orgSlug }, { rejectWithValue }) => {
-        try {
-            const response = await authAxios.post('/join/code', { code, orgSlug });
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(
-                error.response?.data?.message || 'Failed to join organization'
-            );
-        }
-    }
-);
-
-// Request to Join
-export const requestToJoin = createAsyncThunk(
-    'auth/requestToJoin',
-    async ({ orgSlug, message }, { rejectWithValue }) => {
-        try {
-            const response = await authAxios.post('/join/request', { orgSlug, message });
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(
-                error.response?.data?.message || 'Failed to request organization membership'
-            );
-        }
-    }
-);
-
-// ====================
-// INITIAL STATE
+// ENHANCED INITIAL STATE
 // ====================
 
 const initialState = {
@@ -500,15 +533,22 @@ const initialState = {
     organizations: [],
 
     // Authentication state
-    isAuthenticated: !!localStorage.getItem('accessToken'),
-    accessToken: localStorage.getItem('accessToken'),
+    isAuthenticated: !!TokenManager.getAccessToken(),
+    accessToken: TokenManager.getAccessToken(),
+    authInitialized: false,
+    isInitializing: false,
 
     // UI state
     isLoading: false,
     error: null,
 
-    // User sessions
+    // Session management
     sessions: [],
+    lastActivity: Date.now(),
+
+    // Auto-refresh state
+    autoRefreshEnabled: false,
+    refreshInterval: null,
 
     // MFA state
     mfaSecret: null,
@@ -527,13 +567,10 @@ const initialState = {
     // Organization joining
     joinRequestSent: false,
     invitationProcessed: false,
-
-    // Legacy compatibility
-    userType: null, // For backward compatibility
 };
 
 // ====================
-// SLICE
+// ENHANCED SLICE
 // ====================
 
 const authSlice = createSlice({
@@ -554,6 +591,42 @@ const authSlice = createSlice({
             state.invitationProcessed = false;
         },
 
+        // Update last activity
+        updateLastActivity: (state) => {
+            state.lastActivity = Date.now();
+        },
+
+        // Set authentication state manually (for edge cases)
+        setAuthState: (state, action) => {
+            const { user, organization, organizations, accessToken } = action.payload;
+            state.user = user;
+            state.organization = organization;
+            state.organizations = organizations || [];
+            state.accessToken = accessToken;
+            state.isAuthenticated = !!accessToken;
+
+            if (accessToken) {
+                TokenManager.setAccessToken(accessToken);
+            }
+        },
+
+        // Reset auth state
+        resetAuthState: (state) => {
+            TokenManager.clearTokens();
+            Object.assign(state, {
+                ...initialState,
+                authInitialized: true,
+                isAuthenticated: false,
+                accessToken: null,
+            });
+        },
+
+        // Set requires MFA
+        setRequiresMFA: (state, action) => {
+            state.requiresMFA = action.payload.requiresMFA;
+            state.mfaUserId = action.payload.userId;
+        },
+
         // Clear MFA states
         clearMFAStates: (state) => {
             state.mfaSecret = null;
@@ -563,41 +636,70 @@ const authSlice = createSlice({
             state.mfaUserId = null;
         },
 
-        // Reset auth state
-        resetAuthState: (state) => {
-            Object.assign(state, {
-                ...initialState,
-                isAuthenticated: false,
-                accessToken: null,
-            });
-            localStorage.removeItem('accessToken');
-        },
-
-        // Set requires MFA (for login flow)
-        setRequiresMFA: (state, action) => {
-            state.requiresMFA = action.payload.requiresMFA;
-            state.mfaUserId = action.payload.userId;
-        },
-
-        // Update user data locally
-        updateUserData: (state, action) => {
-            if (state.user) {
-                state.user = { ...state.user, ...action.payload };
-            }
-        },
-
-        // Update organization data locally
-        updateOrganizationData: (state, action) => {
-            if (state.organization) {
-                state.organization = { ...state.organization, ...action.payload };
-            }
+        // Enable/disable auto refresh
+        setAutoRefresh: (state, action) => {
+            state.autoRefreshEnabled = action.payload;
         },
     },
 
     extraReducers: (builder) => {
         builder
             // ====================
-            // USER REGISTRATION
+            // INITIALIZE AUTH
+            // ====================
+            .addCase(initializeAuth.pending, (state) => {
+                console.log('Auth initialization pending...');
+                state.isInitializing = true;
+                state.authInitialized = false;
+                state.error = null;
+            })
+            .addCase(initializeAuth.fulfilled, (state, action) => {
+                console.log('Auth initialization fulfilled');
+                state.isInitializing = false;
+                state.authInitialized = true;
+                state.user = action.payload.user;
+                state.organization = action.payload.organization;
+                state.organizations = action.payload.organizations || [];
+                state.accessToken = TokenManager.getAccessToken();
+                state.isAuthenticated = true;
+                state.error = null;
+            })
+            .addCase(initializeAuth.rejected, (state, action) => {
+                console.log('Auth initialization rejected:', action.payload);
+                state.isInitializing = false;
+                state.authInitialized = true; // Important: set to true even on failure
+                state.isAuthenticated = false;
+                state.user = null;
+                state.organization = null;
+                state.organizations = [];
+                state.accessToken = null;
+                state.error = null; // Don't set error for initialization failure
+            })
+
+            // ====================
+            // LOGIN
+            // ====================
+            .addCase(login.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(login.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.user = action.payload.user;
+                state.organization = action.payload.organization;
+                state.organizations = action.payload.organizations || [];
+                state.accessToken = TokenManager.getAccessToken();
+                state.isAuthenticated = true;
+                state.authInitialized = true;
+                state.error = null;
+            })
+            .addCase(login.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload;
+            })
+
+            // ====================
+            // REGISTRATION
             // ====================
             .addCase(registerUser.pending, (state) => {
                 state.isLoading = true;
@@ -610,16 +712,14 @@ const authSlice = createSlice({
                 state.organizations = action.payload.organization ? [action.payload.organization] : [];
                 state.accessToken = action.payload.accessToken;
                 state.isAuthenticated = true;
-                state.userType = 'user';
+                state.authInitialized = true;
+                state.autoRefreshEnabled = true;
             })
             .addCase(registerUser.rejected, (state, action) => {
                 state.isLoading = false;
                 state.error = action.payload;
             })
 
-            // ====================
-            // ORGANIZATION REGISTRATION
-            // ====================
             .addCase(registerOrganization.pending, (state) => {
                 state.isLoading = true;
                 state.error = null;
@@ -628,10 +728,11 @@ const authSlice = createSlice({
                 state.isLoading = false;
                 state.user = action.payload.user;
                 state.organization = action.payload.organization;
-                state.organizations = action.payload.organization ? [action.payload.organization] : [];
+                state.organizations = [action.payload.organization];
                 state.accessToken = action.payload.accessToken;
                 state.isAuthenticated = true;
-                state.userType = 'user';
+                state.authInitialized = true;
+                state.autoRefreshEnabled = true;
             })
             .addCase(registerOrganization.rejected, (state, action) => {
                 state.isLoading = false;
@@ -639,117 +740,65 @@ const authSlice = createSlice({
             })
 
             // ====================
-            // LOGIN
-            // ====================
-            .addCase(login.pending, (state) => {
-                state.isLoading = true;
-                state.error = null;
-            })
-            .addCase(login.fulfilled, (state, action) => {
-                state.isLoading = false;
-
-                if (action.payload.requiresMFA) {
-                    state.requiresMFA = true;
-                    state.mfaUserId = action.payload.userId;
-                } else {
-                    state.user = action.payload.user;
-                    state.organization = action.payload.organization;
-                    state.organizations = action.payload.organizations || [];
-                    state.accessToken = action.payload.accessToken;
-                    state.isAuthenticated = true;
-                    state.userType = 'user';
-                    state.requiresMFA = false;
-                    state.mfaUserId = null;
-                }
-            })
-            .addCase(login.rejected, (state, action) => {
-                state.isLoading = false;
-                state.error = action.payload;
-                state.requiresMFA = false;
-                state.mfaUserId = null;
-            })
-
-            // ====================
             // TOKEN REFRESH
             // ====================
             .addCase(refreshToken.pending, (state) => {
-                console.log('Refresh token pending...');
+                // Don't show loading for refresh
             })
             .addCase(refreshToken.fulfilled, (state, action) => {
-                console.log('Refresh token fulfilled:', action.payload);
+                console.log('Refresh token fulfilled');
                 if (action.payload.user) {
                     state.user = action.payload.user;
-                }
-                if (action.payload.organization) {
                     state.organization = action.payload.organization;
+                    state.organizations = action.payload.organizations || [];
+                    state.isAuthenticated = true;
+                    state.authInitialized = true;
+                    state.accessToken = TokenManager.getAccessToken();
+                    state.error = null;
                 }
-                if (action.payload.organizations) {
-                    state.organizations = action.payload.organizations;
-                }
-                state.accessToken = action.payload.accessToken;
-                state.isAuthenticated = true;
-                state.error = null;
             })
             .addCase(refreshToken.rejected, (state, action) => {
-                console.log('Refresh token rejected:', action.payload);
+                console.log('Refresh token rejected');
+                state.isAuthenticated = false;
                 state.user = null;
                 state.organization = null;
                 state.organizations = [];
                 state.accessToken = null;
+                // Don't set error for silent refresh failures
+            })
+
+            // ====================
+            // SILENT REFRESH
+            // ====================
+            .addCase(silentRefresh.fulfilled, (state, action) => {
+                if (action.payload.user) {
+                    state.user = action.payload.user;
+                    state.organization = action.payload.organization;
+                    state.organizations = action.payload.organizations || [];
+                }
+                state.accessToken = action.payload.accessToken;
+                state.lastActivity = Date.now();
+            })
+            .addCase(silentRefresh.rejected, (state) => {
                 state.isAuthenticated = false;
-                // Don't set error for refresh failures as they're handled by redirect
+                state.autoRefreshEnabled = false;
             })
 
             // ====================
             // GET CURRENT USER
             // ====================
-            .addCase(getCurrentUser.pending, (state) => {
-                state.isLoading = true;
-            })
             .addCase(getCurrentUser.fulfilled, (state, action) => {
-                state.isLoading = false;
+                console.log('Get current user fulfilled');
                 state.user = action.payload.user;
                 state.organization = action.payload.organization;
                 state.organizations = action.payload.organizations || [];
                 state.isAuthenticated = true;
-                state.userType = 'user';
+                state.authInitialized = true;
+                state.accessToken = TokenManager.getAccessToken();
             })
             .addCase(getCurrentUser.rejected, (state, action) => {
-                state.isLoading = false;
-                state.error = action.payload;
-                // Don't set isAuthenticated to false here as token refresh might fix it
-            })
-
-            // ====================
-            // ORGANIZATION SWITCHING
-            // ====================
-            .addCase(switchOrganization.fulfilled, (state, action) => {
-                state.organization = action.payload.organization;
-            })
-            .addCase(switchOrganization.rejected, (state, action) => {
-                state.error = action.payload;
-            })
-
-            // ====================
-            // PROFILE MANAGEMENT
-            // ====================
-            .addCase(updateProfile.fulfilled, (state, action) => {
-                state.user = action.payload.user;
-            })
-            .addCase(updateProfile.rejected, (state, action) => {
-                state.error = action.payload;
-            })
-
-            .addCase(changePassword.pending, (state) => {
-                state.isLoading = true;
-            })
-            .addCase(changePassword.fulfilled, (state) => {
-                state.isLoading = false;
-                state.error = null;
-            })
-            .addCase(changePassword.rejected, (state, action) => {
-                state.isLoading = false;
-                state.error = action.payload;
+                console.log('Get current user rejected');
+                // Don't change auth state here, let initializeAuth handle it
             })
 
             // ====================
@@ -758,21 +807,31 @@ const authSlice = createSlice({
             .addCase(logout.fulfilled, (state) => {
                 Object.assign(state, {
                     ...initialState,
-                    isAuthenticated: false,
-                    accessToken: null,
-                });
-            })
-            .addCase(logoutAll.fulfilled, (state) => {
-                Object.assign(state, {
-                    ...initialState,
+                    authInitialized: true,
                     isAuthenticated: false,
                     accessToken: null,
                 });
             })
 
+            .addCase(logoutAll.fulfilled, (state) => {
+                Object.assign(state, {
+                    ...initialState,
+                    authInitialized: true,
+                    isAuthenticated: false,
+                    accessToken: null,
+                    autoRefreshEnabled: false,
+                });
+            })
+
             // ====================
-            // SESSION MANAGEMENT
+            // OTHER EXISTING CASES
             // ====================
+            .addCase(switchOrganization.fulfilled, (state, action) => {
+                state.organization = action.payload.organization;
+            })
+            .addCase(updateProfile.fulfilled, (state, action) => {
+                state.user = action.payload.user;
+            })
             .addCase(getUserSessions.fulfilled, (state, action) => {
                 state.sessions = action.payload.sessions;
             })
@@ -781,20 +840,12 @@ const authSlice = createSlice({
                     session => session.id !== action.payload.sessionId
                 );
             })
-
-            // ====================
-            // EMAIL VERIFICATION
-            // ====================
             .addCase(verifyEmail.fulfilled, (state) => {
                 state.emailVerified = true;
                 if (state.user) {
                     state.user.emailVerified = true;
                 }
             })
-
-            // ====================
-            // PASSWORD RESET
-            // ====================
             .addCase(requestPasswordReset.fulfilled, (state) => {
                 state.resetRequested = true;
             })
@@ -803,97 +854,32 @@ const authSlice = createSlice({
             })
 
             // ====================
-            // MFA
-            // ====================
-            .addCase(generateMFASecret.fulfilled, (state, action) => {
-                state.mfaSecret = action.payload.secret;
-                state.mfaQRCode = action.payload.qrCode;
-            })
-            .addCase(enableMFA.fulfilled, (state, action) => {
-                state.backupCodes = action.payload.backupCodes;
-                state.mfaSecret = null;
-                state.mfaQRCode = null;
-                if (state.user) {
-                    state.user.mfaEnabled = true;
-                }
-            })
-            .addCase(disableMFA.fulfilled, (state) => {
-                state.backupCodes = [];
-                if (state.user) {
-                    state.user.mfaEnabled = false;
-                }
-            })
-            .addCase(generateBackupCodes.fulfilled, (state, action) => {
-                state.backupCodes = action.payload.backupCodes;
-            })
-
-            // ====================
-            // ORGANIZATION JOINING
-            // ====================
-            .addCase(joinByInvitation.fulfilled, (state, action) => {
-                state.invitationProcessed = true;
-
-                // If new user registration with tokens
-                if (action.payload.accessToken) {
-                    state.user = action.payload.user;
-                    state.organization = action.payload.organization;
-                    state.accessToken = action.payload.accessToken;
-                    state.isAuthenticated = true;
-                    state.userType = 'user';
-                }
-
-                // Update organizations list if user was already logged in
-                if (state.user && action.payload.organization) {
-                    const existingOrgIndex = state.organizations.findIndex(
-                        org => org.id === action.payload.organization.id
-                    );
-
-                    if (existingOrgIndex === -1) {
-                        state.organizations.push(action.payload.organization);
-                    }
-                }
-            })
-            .addCase(joinByCode.fulfilled, (state, action) => {
-                const org = action.payload.organization;
-                const existingOrgIndex = state.organizations.findIndex(o => o.id === org.id);
-
-                if (existingOrgIndex === -1) {
-                    state.organizations.push(org);
-                }
-            })
-            .addCase(requestToJoin.fulfilled, (state) => {
-                state.joinRequestSent = true;
-            })
-
-            // ====================
             // ERROR HANDLING
             // ====================
             .addMatcher(
-                (action) => action.type.endsWith('/rejected'),
+                (action) => action.type.endsWith('/rejected') &&
+                    !action.type.includes('refreshToken') &&
+                    !action.type.includes('getCurrentUser') &&
+                    !action.type.includes('initializeAuth'),
                 (state, action) => {
-                    if (action.type !== 'auth/refreshToken/rejected') {
-                        state.error = action.payload;
-                    }
-                    if (action.type.includes('login') || action.type.includes('register')) {
-                        state.isLoading = false;
-                    }
+                    state.error = action.payload;
                 }
             );
     },
 });
 
-// Export actions
 export const {
     clearError,
     clearSuccessStates,
-    clearMFAStates,
+    updateLastActivity,
+    setAuthState,
     resetAuthState,
     setRequiresMFA,
-    updateUserData,
-    updateOrganizationData,
+    clearMFAStates,
+    setAutoRefresh,
 } = authSlice.actions;
 
 export default authSlice.reducer;
 
-// Export the authAxios instance for use in other files if needed
-export { authAxios };
+// Export utilities
+export { authAxios, TokenManager };
